@@ -544,7 +544,7 @@ function seed() {
     config: {
       nombreTienda: 'Aroma Propio', bannerUrl: '', bannerTitulo: 'Encontrá el aroma que te represente',
       bannerSubtitulo: 'Envío gratis en compras desde $80.000', whatsappNumero: '', envioGratisDesde: 80000,
-      aliasCbu: '', retiroLocal: false, emailContacto: '', direccionContacto: '', mapaUrl: ''
+      aliasCbu: '', retiroLocal: false, emailContacto: '', direccionContacto: '', mapaUrl: '', apiUrl: ''
     },
     envios: seedEnvios()
   };
@@ -561,7 +561,10 @@ let SESION = LS.get('sesion', null);
 let authTab = 'login';
 let abrirCOtrasRuta = false;
 let fallosLogin = 0, bloqueoLogin = 0;
-const usuario = () => CUENTAS.find(c => c.id === SESION) || null;
+let TOKEN = LS.get('token', null), USER = null, MIS = [];
+let misCargado = false, misCargando = false, admCargado = false, admError = '', enviando = false;
+const API = () => (D && D.config && D.config.apiUrl) ? String(D.config.apiUrl).replace(/\/+$/, '') : '';
+const usuario = () => API() ? USER : (CUENTAS.find(c => c.id === SESION) || null);
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 let vista = LS.get('vista', 'compacta');
 const filtro = { q: '', cat: 'todas', orden: 'nuevos' };
@@ -593,6 +596,54 @@ async function cargarDatos() {
   D = seed();
 }
 const guardar = () => LS.set('datos', D);
+
+/* ---------- servidor (cuentas, favoritos, pedidos) ---------- */
+async function api(ruta, o = {}) {
+  const t = o.publico ? null : (o.admin ? SS.get('admtoken') : TOKEN);
+  const ctl = new AbortController(), reloj = setTimeout(() => ctl.abort(), 12000);
+  try {
+    const r = await fetch(API() + '/api' + ruta, {
+      method: o.metodo || 'GET', signal: ctl.signal,
+      headers: { ...(o.cuerpo ? { 'Content-Type': 'application/json' } : {}), ...(t ? { Authorization: 'Bearer ' + t } : {}) },
+      body: o.cuerpo ? JSON.stringify(o.cuerpo) : undefined
+    });
+    let j = null; try { j = await r.json(); } catch (e) {}
+    if (r.ok) return { ok: true, status: r.status, datos: j || {} };
+    if (r.status === 401 && t) { if (o.admin) adminVencido(); else sesionVencida(); }
+    return { ok: false, status: r.status, error: (j && j.error) || 'Error del servidor', datos: j || {} };
+  } catch (e) {
+    return { ok: false, status: 0, datos: {}, error: e.name === 'AbortError' ? 'El servidor tardó demasiado en responder. Probá de nuevo.' : 'No se pudo conectar con el servidor. Revisá tu conexión.' };
+  } finally { clearTimeout(reloj); }
+}
+function sesionVencida() {
+  if (!TOKEN) return;
+  TOKEN = null; USER = null; MIS = []; misCargado = false; LS.del('token'); FAVS = []; LS.set('favs', FAVS); pintarBadges();
+  toast('Tu sesión venció. Volvé a ingresar.', 'error');
+  if (['cuenta', 'favoritos'].includes(ruta().a)) pintarVista();
+}
+function adminVencido() {
+  SS.del('admtoken'); admCargado = false;
+  toast('La sesión del panel venció. Volvé a ingresar.', 'error');
+  if (ruta().a === 'admin') vistaAdmin(ruta().b);
+}
+async function refrescarStock() {
+  if (!API()) return;
+  const r = await api('/stock', { publico: true });
+  if (r.ok) { VEND = r.datos.vendidos || {}; LS.set('vend_srv', VEND); }
+}
+async function restaurarSesion() {
+  if (!API() || !TOKEN) return;
+  const r = await api('/yo');
+  if (r.ok) { USER = r.datos.usuario; FAVS = r.datos.favoritos || []; LS.set('favs', FAVS); }
+}
+async function cargarMis() {
+  if (misCargando) return;
+  misCargando = true;
+  const r = await api('/pedidos');
+  misCargando = false; misCargado = true;
+  if (r.ok) MIS = r.datos.pedidos || []; else if (r.status !== 401) toast(r.error, 'error');
+  if (ruta().a === 'cuenta') vistaCuenta();
+}
 
 /* ---------- productos ---------- */
 const prod = id => D.productos.find(p => p.id === id);
@@ -806,9 +857,25 @@ function armarMensaje(p) {
   return L.join('\n');
 }
 
+function pantallaExito(pedido) {
+  const retiro = pedido.esRetiro;
+  $('#co-titulo').textContent = 'Pedido registrado';
+  $('#co-body').innerHTML = `<div class="cent">
+    <div class="ok-ico">${ico('check')}</div>
+    <h2>Pedido ${esc(pedido.numero)}</h2>
+    <p class="suave" style="margin:.6rem 0 1rem">${retiro ? 'Tocá el botón para enviarnos tu pedido por WhatsApp junto con el comprobante. Ahí coordinamos el día y horario para que pases a retirarlo.' : 'Tocá el botón para enviarnos tu pedido por WhatsApp junto con el comprobante de la transferencia.'}</p>
+    ${D.config.aliasCbu ? `<p class="lbl">Alias o CBU para transferir</p><div class="alias"><span id="alias-val">${esc(D.config.aliasCbu)}</span><button class="btn sec chico" type="button" data-act="copiar" data-txt="${esc(D.config.aliasCbu)}">${ico('copiar')} Copiar</button></div>` : ''}
+    <p class="lbl" style="margin-top:1rem">Total a transferir</p><p class="precio" style="font-size:1.6rem">${fmt(pedido.total)}</p>
+    <a class="btn block" style="margin-top:1rem" target="_blank" rel="noopener" href="${esc(linkWA(D.config.whatsappNumero, pedido.mensajeWhatsapp))}">${ico('chat')} Enviar pedido por WhatsApp</a>
+    ${D.config.whatsappNumero ? '' : '<p class="ayuda" style="margin-top:.5rem">Todavía no hay un número de WhatsApp cargado: al abrir WhatsApp vas a tener que elegir el contacto.</p>'}
+    <button class="btn sec block" style="margin-top:.6rem" type="button" data-act="cerrar" data-panel="#co">Seguir comprando</button>
+  </div>`;
+}
+
 function confirmarPedido() {
   const u = usuario();
   if (!u) { abrirCheckout(); return; }
+  if (enviando) return;
   const ls = lineas();
   if (!ls.length) { cerrar('#co'); return; }
   for (const l of ls) if (stockDe(l.p) < l.cant) { toast(`${l.p.nombre}: quedan ${stockDe(l.p)}`, 'error'); renderCarro(); return; }
@@ -821,6 +888,7 @@ function confirmarPedido() {
   };
   let env = { ok: true, costo: 0, zona: { nombre: 'Retiro en el local' } };
   if (!retiro) { env = calcEnvio(cli.provincia, articulos(), sub); if (!env.ok) { toast(env.motivo, 'error'); return; } }
+  if (API()) { enviarPedido(ls, retiro, cli, env, $('#c-notas').value.trim()); return; }
   const pedido = {
     id: uid(), numero: numeroPedido(), fecha: new Date().toISOString(), clienteId: u.id, clienteEmail: u.email, cliente: cli, notas: $('#c-notas').value.trim(),
     items: ls.map(l => ({ id: l.p.id, nombre: nombreLargo(l.p), precio: l.precio, cant: l.cant })),
@@ -833,17 +901,34 @@ function confirmarPedido() {
   PEDIDOS.unshift(pedido); LS.set('pedidos', PEDIDOS);
   Object.assign(u, Object.fromEntries(Object.entries(cli).filter(([k, v]) => v))); LS.set('cuentas', CUENTAS);
   CARRITO = []; guardarCarro(); renderCarro();
-  $('#co-titulo').textContent = 'Pedido registrado';
-  $('#co-body').innerHTML = `<div class="cent">
-    <div class="ok-ico">${ico('check')}</div>
-    <h2>Pedido ${esc(pedido.numero)}</h2>
-    <p class="suave" style="margin:.6rem 0 1rem">${retiro ? 'Tocá el botón para enviarnos tu pedido por WhatsApp junto con el comprobante. Ahí coordinamos el día y horario para que pases a retirarlo.' : 'Tocá el botón para enviarnos tu pedido por WhatsApp junto con el comprobante de la transferencia.'}</p>
-    ${D.config.aliasCbu ? `<p class="lbl">Alias o CBU para transferir</p><div class="alias"><span id="alias-val">${esc(D.config.aliasCbu)}</span><button class="btn sec chico" type="button" data-act="copiar" data-txt="${esc(D.config.aliasCbu)}">${ico('copiar')} Copiar</button></div>` : ''}
-    <p class="lbl" style="margin-top:1rem">Total a transferir</p><p class="precio" style="font-size:1.6rem">${fmt(pedido.total)}</p>
-    <a class="btn block" style="margin-top:1rem" target="_blank" rel="noopener" href="${esc(linkWA(D.config.whatsappNumero, pedido.mensajeWhatsapp))}">${ico('chat')} Enviar pedido por WhatsApp</a>
-    ${D.config.whatsappNumero ? '' : '<p class="ayuda" style="margin-top:.5rem">Todavía no hay un número de WhatsApp cargado: al abrir WhatsApp vas a tener que elegir el contacto.</p>'}
-    <button class="btn sec block" style="margin-top:.6rem" type="button" data-act="cerrar" data-panel="#co">Seguir comprando</button>
-  </div>`;
+  pantallaExito(pedido);
+  pintarVista();
+}
+
+async function enviarPedido(ls, retiro, cli, env, notas) {
+  enviando = true;
+  const btn = $('#form-co button[type=submit]'); if (btn) btn.disabled = true;
+  const r = await api('/pedidos', { metodo: 'POST', cuerpo: {
+    items: ls.map(l => ({ id: l.p.id, nombre: nombreLargo(l.p), precio: l.precio, cant: l.cant })),
+    cliente: cli, notas, envio: env.costo, zona: env.zona.nombre, esRetiro: retiro
+  } });
+  enviando = false; if (btn) btn.disabled = false;
+  if (!r.ok) {
+    if (!usuario()) { abrirCheckout(); return; }
+    toast(r.error, 'error');
+    if (r.status === 409) {
+      await refrescarStock(); depurarCarro(); renderCarro();
+      if (!CARRITO.length) cerrar('#co'); else totalesCheckout();
+    }
+    return;
+  }
+  const pedido = r.datos.pedido;
+  pedido.mensajeWhatsapp = armarMensaje(pedido);
+  if (r.datos.usuario) USER = r.datos.usuario;
+  MIS.unshift(pedido); misCargado = false;
+  CARRITO = []; guardarCarro(); renderCarro();
+  pantallaExito(pedido);
+  await refrescarStock();
   pintarVista();
 }
 
@@ -996,7 +1081,7 @@ function vistaAuth() {
       <div class="campo"><label for="r-pass2">Repetir contraseña</label><input class="inp" id="r-pass2" type="password" data-pw minlength="6" required autocomplete="new-password"></div>
       <label class="chk"><input type="checkbox" data-verpass> Mostrar contraseñas</label>
       <button class="btn block" type="submit">Crear cuenta</button>
-      <p class="ayuda" style="margin-top:.8rem">Tu cuenta se guarda en este dispositivo. Para entrar desde otro celular o computadora vas a tener que crearla de nuevo.</p>
+      <p class="ayuda" style="margin-top:.8rem">${API() ? 'Con tu cuenta ves tus pedidos y favoritos desde cualquier celular o computadora.' : 'Tu cuenta se guarda en este dispositivo. Para entrar desde otro celular o computadora vas a tener que crearla de nuevo.'}</p>
     </form>` : `<form id="form-login">
       <div class="campo"><label for="l-email">Email</label><input class="inp" id="l-email" type="email" required autocomplete="email" inputmode="email"></div>
       <div class="campo"><label for="l-pass">Contraseña</label><input class="inp" id="l-pass" type="password" data-pw required autocomplete="current-password"></div>
@@ -1011,19 +1096,21 @@ function vistaCuenta() {
   const u = usuario();
   document.title = 'Mi cuenta — ' + D.config.nombreTienda;
   if (!u) { vistaAuth(); return; }
-  const mios = PEDIDOS.filter(p => p.clienteId === u.id);
+  const remoto = !!API();
+  if (remoto && !misCargado) cargarMis();
+  const mios = remoto ? MIS : PEDIDOS.filter(p => p.clienteId === u.id);
   $('#vista').innerHTML = `<div class="cont" style="max-width:760px">
     <div style="display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin:1.2rem 0">
       <div class="flex1"><h2>Hola, ${esc((u.nombre || '').split(' ')[0] || 'bienvenido')}</h2><p class="suave">${esc(u.email)}</p></div>
       <button class="btn sec chico" type="button" data-act="salir">Cerrar sesión</button></div>
     <section class="panel"><h2>Mis pedidos</h2>
-      ${mios.length ? mios.map(p => `<div class="ped">
+      ${remoto && !misCargado ? '<p class="suave">Cargando tus pedidos…</p>' : mios.length ? mios.map(p => `<div class="ped">
         <div class="ped-top"><strong>${esc(p.numero)}</strong><span class="est ${esc(p.estado)}">${esc(ESTADOS[p.estado] || p.estado)}</span></div>
         <p class="suave">${new Date(p.fecha).toLocaleDateString('es-AR')}, ${p.esRetiro ? 'retiro en el local' : 'envío a ' + esc(p.cliente.provincia || '')}</p>
         <p style="margin:.4rem 0">${p.items.map(i => `${i.cant} × ${esc(i.nombre)}`).join(', ')}</p>
         <p><strong>${fmt(p.total)}</strong></p>
         ${p.estado === 'pendiente' ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
-          <a class="btn chico" target="_blank" rel="noopener" href="${esc(linkWA(D.config.whatsappNumero, p.mensajeWhatsapp))}">${ico('chat')} Coordinar por WhatsApp</a>
+          <a class="btn chico" target="_blank" rel="noopener" href="${esc(linkWA(D.config.whatsappNumero, p.mensajeWhatsapp || armarMensaje(p)))}">${ico('chat')} Coordinar por WhatsApp</a>
           <button class="btn peligro chico" type="button" data-act="ped-cancelar" data-id="${esc(p.id)}">Cancelar pedido</button></div>` : ''}
       </div>`).join('') : '<p class="suave">Todavía no hiciste pedidos.</p>'}
     </section>
@@ -1059,6 +1146,16 @@ async function registrar() {
   if (!emailOk(email)) { toast('Revisá el email: parece incompleto', 'error'); return; }
   if (p1.length < 6) { toast('La contraseña necesita al menos 6 caracteres', 'error'); return; }
   if (p1 !== p2) { toast('Las contraseñas no coinciden', 'error'); return; }
+  if (API()) {
+    if (enviando) return;
+    enviando = true;
+    try {
+      const r = await api('/registro', { metodo: 'POST', publico: true, cuerpo: { nombre, email, telefono: tel, password: p1 } });
+      if (!r.ok) { toast(r.error, 'error'); return; }
+      await entrarRemoto(r.datos, `¡Bienvenido/a, ${nombre.split(' ')[0]}!`);
+    } finally { enviando = false; }
+    return;
+  }
   if (CUENTAS.some(c => c.email === email)) { toast('Ya hay una cuenta con ese email. Ingresá con tu contraseña.', 'error'); return; }
   const salt = uid() + uid();
   const c = { id: uid(), email, salt, hash: await hashPass(p1, salt), nombre, telefono: tel, direccion: '', entreCalles: '', ciudad: '', codigoPostal: '', provincia: '', fecha: new Date().toISOString() };
@@ -1067,6 +1164,16 @@ async function registrar() {
   iniciarSesion(c.id, `¡Bienvenido/a, ${nombre.split(' ')[0]}!`);
 }
 async function ingresar() {
+  if (API()) {
+    if (enviando) return;
+    enviando = true;
+    try {
+      const r = await api('/login', { metodo: 'POST', publico: true, cuerpo: { email: $('#l-email').value.trim().toLowerCase(), password: $('#l-pass').value } });
+      if (!r.ok) { toast(r.error, 'error'); $('#l-pass').select(); return; }
+      await entrarRemoto(r.datos, 'Sesión iniciada');
+    } finally { enviando = false; }
+    return;
+  }
   if (Date.now() < bloqueoLogin) { toast('Demasiados intentos. Esperá unos segundos y probá de nuevo.', 'error'); return; }
   const email = $('#l-email').value.trim().toLowerCase(), c = CUENTAS.find(x => x.email === email);
   if (c && await hashPass($('#l-pass').value, c.salt) === c.hash) { fallosLogin = 0; iniciarSesion(c.id, 'Sesión iniciada'); return; }
@@ -1074,15 +1181,32 @@ async function ingresar() {
   toast('El email o la contraseña no son correctos', 'error');
   $('#l-pass').select();
 }
-function iniciarSesion(id, msg) {
-  SESION = id; LS.set('sesion', id); pintarBadges(); toast(msg, 'success');
+function despuesDeIngresar() {
   if (SS.get('pend') === '1') {
     SS.del('pend'); abrirCOtrasRuta = true;
     if (location.hash === '' || location.hash === '#/') router(); else location.hash = '#/';
   } else pintarVista();
 }
+function iniciarSesion(id, msg) {
+  SESION = id; LS.set('sesion', id); pintarBadges(); toast(msg, 'success');
+  despuesDeIngresar();
+}
+async function entrarRemoto(d, msg) {
+  TOKEN = d.token; LS.set('token', TOKEN); USER = d.usuario; MIS = []; misCargado = false;
+  const locales = FAVS.slice();
+  FAVS = d.favoritos || [];
+  if (locales.some(id => !FAVS.includes(id))) {
+    const s = await api('/favoritos/sync', { metodo: 'POST', cuerpo: { ids: locales } });
+    if (s.ok) FAVS = s.datos.favoritos || FAVS;
+  }
+  LS.set('favs', FAVS);
+  pintarBadges(); toast(msg, 'success');
+  despuesDeIngresar();
+}
 function cerrarSesion() {
-  SESION = null; LS.del('sesion'); authTab = 'login'; cerrarPaneles(); pintarBadges(); toast('Cerraste sesión', 'success');
+  if (API()) { TOKEN = null; USER = null; MIS = []; misCargado = false; LS.del('token'); FAVS = []; LS.set('favs', FAVS); }
+  else { SESION = null; LS.del('sesion'); }
+  authTab = 'login'; cerrarPaneles(); pintarBadges(); toast('Cerraste sesión', 'success');
   if (location.hash === '#/') pintarVista(); else location.hash = '#/';
 }
 
@@ -1124,9 +1248,14 @@ async function hashPass(pw, salt) {
 
 function vistaAdmin(tab) {
   document.title = 'Panel — ' + D.config.nombreTienda;
-  const cred = LS.get('admin', null);
-  if (!cred) return adminCrear();
-  if (SS.get('ok') !== '1') return adminLogin();
+  if (API()) {
+    if (!SS.get('admtoken')) return adminLogin();
+    if (!admCargado) return cargarAdm(tab);
+  } else {
+    const cred = LS.get('admin', null);
+    if (!cred) return adminCrear();
+    if (SS.get('ok') !== '1') return adminLogin();
+  }
   tab = tab || 'resumen';
   const tabs = [['resumen', 'Resumen'], ['productos', 'Productos'], ['categorias', 'Categorías'], ['pedidos', 'Pedidos'], ['envios', 'Envíos'], ['config', 'Configuración'], ['datos', 'Datos']];
   $('#vista').innerHTML = `<div class="cont adm">
@@ -1135,6 +1264,16 @@ function vistaAdmin(tab) {
     <nav class="adm-tabs" aria-label="Secciones del panel">${tabs.map(([k, t]) => `<a href="#/admin/${k}" class="${tab === k ? 'on' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>
     <div id="adm-cont"></div></div>`;
   ({ resumen: admResumen, productos: admProductos, categorias: admCategorias, pedidos: admPedidos, envios: admEnvios, config: admConfig, datos: admDatos }[tab] || admResumen)();
+}
+
+async function cargarAdm(tab) {
+  $('#vista').innerHTML = '<div class="cont"><div class="vacio"><p>Cargando el panel…</p></div></div>';
+  const r = await api('/admin/pedidos', { admin: true });
+  if (r.status === 401) return;
+  admCargado = true;
+  if (r.ok) { PEDIDOS = r.datos.pedidos || []; admError = ''; } else { PEDIDOS = []; admError = r.error; }
+  await refrescarStock();
+  if (ruta().a === 'admin') vistaAdmin(tab);
 }
 
 function adminCrear() {
@@ -1150,7 +1289,7 @@ function adminLogin() {
     <h2>Panel de administración</h2>
     <div class="campo" style="margin-top:1rem"><label for="a-pass">Contraseña</label><input class="inp" id="a-pass" type="password" required autocomplete="current-password"></div>
     <button class="btn block" type="submit">Entrar</button>
-    <p class="ayuda" style="margin-top:.8rem">Si te olvidaste la contraseña, borrá los datos del sitio desde la configuración del navegador.</p></form></div>`;
+    <p class="ayuda" style="margin-top:.8rem">${API() ? 'Es la contraseña que cargaste en el servidor (ADMIN_PASSWORD). Si querés cambiarla, se cambia en Cloudflare.' : 'Si te olvidaste la contraseña, borrá los datos del sitio desde la configuración del navegador.'}</p></form></div>`;
 }
 
 /* ---------- resumen ---------- */
@@ -1306,7 +1445,8 @@ function cambiarEstado(id, nuevo) {
 function admPedidos() {
   const l = PEDIDOS.filter(p => adm.ped === 'todos' || p.estado === adm.ped);
   $('#adm-cont').innerHTML = `<div class="toolbar"><select class="inp" id="adm-ped-f" aria-label="Filtrar pedidos por estado"><option value="todos">Todos los estados</option>${Object.entries(ESTADOS).map(([k, t]) => `<option value="${k}" ${adm.ped === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-    <p class="aviso">Acá aparecen los pedidos hechos desde este navegador. Los de tus clientes te llegan por WhatsApp; al cancelar un pedido, el stock vuelve solo.</p>
+    ${API() ? `<p class="aviso">${admError ? 'No se pudieron cargar los pedidos: ' + esc(admError) : 'Acá están los pedidos de todos tus clientes. Al cancelar uno, el stock vuelve solo.'}</p>
+    <button class="btn sec chico" type="button" data-act="adm-recargar" style="margin-bottom:.8rem">Actualizar pedidos</button>` : '<p class="aviso">Acá aparecen los pedidos hechos desde este navegador. Los de tus clientes te llegan por WhatsApp; al cancelar un pedido, el stock vuelve solo.</p>'}
     ${l.length ? l.map(p => {
       const c = p.cliente, tel = normalizarWA(c.telefono);
       return `<div class="ped"><div class="ped-top"><strong>${esc(p.numero)}</strong>
@@ -1366,6 +1506,10 @@ function admConfig() {
       <div class="campo"><label for="cfg-mail">Email</label><input class="inp" id="cfg-mail" type="email" value="${esc(c.emailContacto)}"></div>
       <div class="campo"><label for="cfg-dir">Dirección</label><input class="inp" id="cfg-dir" value="${esc(c.direccionContacto)}"></div>
       <div class="campo"><label for="cfg-mapa">Link de Google Maps (opcional)</label><input class="inp" id="cfg-mapa" type="url" value="${esc(c.mapaUrl)}"></div></section>
+    <section class="panel"><h2>Servidor (cuentas y pedidos)</h2>
+      <div class="campo"><label for="cfg-api">Dirección del servidor</label><input class="inp" id="cfg-api" type="url" inputmode="url" placeholder="https://aroma-propio-api.tu-usuario.workers.dev" value="${esc(c.apiUrl || '')}">
+        <span class="ayuda">Con el servidor cargado, las cuentas, favoritos y pedidos de tus clientes funcionan desde cualquier dispositivo. Dejalo vacío para trabajar sin servidor.</span></div>
+      <button class="btn sec chico" type="button" data-act="api-probar">Probar conexión</button></section>
     <button class="btn" type="submit">Guardar configuración</button></form>`;
 }
 
@@ -1373,32 +1517,35 @@ function admConfig() {
 function exportarCatalogo() {
   return {
     version: 1, generado: new Date().toISOString(), categorias: D.categorias, config: D.config, envios: D.envios,
-    productos: D.productos.map(p => ({ ...p, stock: stockDe(p), vendida: ventas(p) }))
+    productos: D.productos.map(p => API() ? { ...p } : { ...p, stock: stockDe(p), vendida: ventas(p) })
   };
 }
 function admDatos() {
   $('#adm-cont').innerHTML = `<section class="panel"><h2>Publicar el catálogo</h2>
-      <p class="suave" style="margin-bottom:.8rem">Descargá <b>datos.json</b> y subilo al repositorio de GitHub junto a este archivo. Así cualquiera que entre a la tienda ve tus productos, precios y configuración.</p>
+      <p class="suave" style="margin-bottom:.8rem">Descargá <b>datos.json</b> y subilo al repositorio de GitHub junto a este archivo. Así cualquiera que entre a la tienda ve tus productos, precios y configuración.${API() ? ' El servidor usa este archivo para controlar precios y stock en cada pedido: publicalo cada vez que cambies precios o stock.' : ''}</p>
       <button class="btn" type="button" data-act="dl-datos">${ico('bajar')} Descargar datos.json</button></section>
-    <p class="aviso">Las cuentas de clientes se guardan en el dispositivo de cada persona. Para que una cuenta funcione desde cualquier celular o computadora hace falta un servidor, que se suma en una próxima etapa.</p>
+    <p class="aviso">${API() ? 'Las cuentas, favoritos y pedidos de tus clientes se guardan en el servidor y funcionan desde cualquier dispositivo. Los productos, precios y el stock se publican con datos.json.' : 'Las cuentas de clientes se guardan en el dispositivo de cada persona. Para que funcionen desde cualquier celular o computadora, cargá la dirección del servidor en Configuración.'}</p>
     <section class="panel"><h2>Respaldo</h2>
-      <p class="suave" style="margin-bottom:.8rem">Incluye productos, configuración y pedidos de este navegador. Usalo para pasar todo a otro dispositivo o para volver atrás.</p>
+      <p class="suave" style="margin-bottom:.8rem">${API() ? 'Incluye productos y configuración. Los pedidos quedan guardados en el servidor.' : 'Incluye productos, configuración y pedidos de este navegador. Usalo para pasar todo a otro dispositivo o para volver atrás.'}</p>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap">
         <button class="btn sec" type="button" data-act="dl-respaldo">${ico('bajar')} Descargar respaldo</button>
         <label class="btn sec" style="cursor:pointer">${ico('subir')} Importar archivo<input id="imp-file" type="file" accept="application/json,.json" hidden></label></div></section>
-    <section class="panel"><h2>Contraseña del panel</h2>
-      <form id="form-pass"><div class="campo"><label for="np">Contraseña nueva (mínimo 6 caracteres)</label><input class="inp" id="np" type="password" minlength="6" required autocomplete="new-password"></div><button class="btn" type="submit">Cambiar contraseña</button></form></section>
+    ${API() ? '' : `<section class="panel"><h2>Contraseña del panel</h2>
+      <form id="form-pass"><div class="campo"><label for="np">Contraseña nueva (mínimo 6 caracteres)</label><input class="inp" id="np" type="password" minlength="6" required autocomplete="new-password"></div><button class="btn" type="submit">Cambiar contraseña</button></form></section>`}
     <section class="panel"><h2>Limpieza</h2>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap">
-        <button class="btn peligro" type="button" data-act="borrar-pedidos">Borrar todos los pedidos</button>
+        ${API() ? '' : '<button class="btn peligro" type="button" data-act="borrar-pedidos">Borrar todos los pedidos</button>'}
         <button class="btn peligro" type="button" data-act="reset-tienda">Volver a los datos de ejemplo</button></div></section>`;
 }
 async function importarArchivo(file) {
   try {
     const j = JSON.parse(await file.text());
     if (!j || !Array.isArray(j.productos)) throw new Error('el archivo no tiene productos');
-    D = normalizarDatos(j); VEND = {}; LS.set('vendidos', VEND);
-    if (Array.isArray(j.pedidos)) { PEDIDOS = j.pedidos; LS.set('pedidos', PEDIDOS); }
+    const url0 = D.config.apiUrl;
+    D = normalizarDatos(j);
+    if (!D.config.apiUrl && url0) D.config.apiUrl = url0;
+    if (!API()) { VEND = {}; LS.set('vendidos', VEND); }
+    if (!API() && Array.isArray(j.pedidos)) { PEDIDOS = j.pedidos; LS.set('pedidos', PEDIDOS); }
     if (!guardar()) throw new Error('no hay espacio en el navegador');
     adm.env = null; aplicarMarca(); pintarBadges(); toast('Datos importados', 'success'); admDatos();
   } catch (e) { toast('No se pudo importar: ' + e.message, 'error'); }
@@ -1421,6 +1568,9 @@ function pintarVista() {
   else vistaHome();
 }
 function router() {
+  const r = ruta();
+  if (r.a === 'cuenta') misCargado = false;
+  if (r.a === 'admin' && ['', 'resumen', 'pedidos'].includes(r.b)) admCargado = false;
   cerrarPaneles(); pintarVista(); window.scrollTo(0, 0);
   if (abrirCOtrasRuta) { abrirCOtrasRuta = false; abrirCheckout(); }
 }
@@ -1437,10 +1587,19 @@ function aplicarTema(t) {
   LS.set('tema', t);
 }
 function toggleFav(id) {
-  const i = FAVS.indexOf(id);
-  if (i >= 0) FAVS.splice(i, 1); else FAVS.push(id);
+  const i = FAVS.indexOf(id), agrega = i < 0;
+  if (agrega) FAVS.push(id); else FAVS.splice(i, 1);
   LS.set('favs', FAVS); pintarBadges();
-  return i < 0;
+  if (API() && usuario()) {
+    api('/favoritos/' + encodeURIComponent(id), { metodo: agrega ? 'PUT' : 'DELETE' }).then(r => {
+      if (r.ok || r.status === 401) return;
+      const j = FAVS.indexOf(id);
+      if (agrega && j >= 0) FAVS.splice(j, 1); else if (!agrega && j < 0) FAVS.push(id);
+      LS.set('favs', FAVS); pintarBadges(); pintarVista();
+      toast('No se pudo guardar el favorito. Probá de nuevo.', 'error');
+    });
+  }
+  return agrega;
 }
 async function copiarTexto(t) {
   try { await navigator.clipboard.writeText(t); toast('Copiado', 'success'); }
@@ -1459,7 +1618,7 @@ document.addEventListener('click', async e => {
   switch (act) {
     case 'menu': abrirMenu(); break;
     case 'tema': aplicarTema(document.documentElement.getAttribute('data-tema') === 'noche' ? 'claro' : 'noche'); break;
-    case 'carro-abrir': abrirCarro(); break;
+    case 'carro-abrir': abrirCarro(); if (API()) refrescarStock().then(() => { depurarCarro(); renderCarro(); pintarBadges(); }); break;
     case 'cerrar': cerrar(el.dataset.panel); break;
     case 'cerrar-todo': cerrarPaneles(); break;
     case 'cat':
@@ -1503,14 +1662,22 @@ document.addEventListener('click', async e => {
     case 'salir': cerrarSesion(); break;
     case 'auth-tab': authTab = el.dataset.t === 'registro' ? 'registro' : 'login'; vistaAuth(); break;
     case 'ped-cancelar': {
-      const pd = PEDIDOS.find(p => p.id === id), u = usuario();
-      if (!pd || !u || pd.clienteId !== u.id) break;
-      if (await confirmar('¿Cancelar el pedido?', 'El stock de los perfumes vuelve a estar disponible.', 'Cancelar pedido')) { cambiarEstado(id, 'cancelado'); toast('Pedido cancelado', 'success'); vistaCuenta(); }
+      const u = usuario(); if (!u) break;
+      const pd = API() ? MIS.find(p => p.id === id) : PEDIDOS.find(p => p.id === id && p.clienteId === u.id);
+      if (!pd) break;
+      if (await confirmar('¿Cancelar el pedido?', 'El stock de los perfumes vuelve a estar disponible.', 'Cancelar pedido')) {
+        if (API()) {
+          const r = await api('/pedidos/' + encodeURIComponent(id) + '/cancelar', { metodo: 'POST' });
+          if (r.ok) { MIS = MIS.map(p => p.id === id ? r.datos.pedido : p); await refrescarStock(); toast('Pedido cancelado', 'success'); } else toast(r.error, 'error');
+        } else { cambiarEstado(id, 'cancelado'); toast('Pedido cancelado', 'success'); }
+        vistaCuenta();
+      }
       break;
     }
 
     /* --- panel --- */
-    case 'adm-salir': SS.del('ok'); vistaAdmin(); break;
+    case 'adm-salir': SS.del('ok'); SS.del('admtoken'); admCargado = false; vistaAdmin(); break;
+    case 'adm-recargar': admCargado = false; vistaAdmin('pedidos'); break;
     case 'p-nuevo': formProducto(); break;
     case 'p-editar': formProducto(id); break;
     case 'p-borrar': {
@@ -1545,8 +1712,25 @@ document.addEventListener('click', async e => {
       break;
     }
     case 'ped-borrar':
-      if (await confirmar('¿Eliminar el pedido?', 'Se borra el registro del pedido cancelado.', 'Eliminar')) { PEDIDOS = PEDIDOS.filter(p => p.id !== id); LS.set('pedidos', PEDIDOS); admPedidos(); }
+      if (await confirmar('¿Eliminar el pedido?', 'Se borra el registro del pedido cancelado.', 'Eliminar')) {
+        if (API()) {
+          const r = await api('/admin/pedidos/' + encodeURIComponent(id), { metodo: 'DELETE', admin: true });
+          if (!r.ok) { toast(r.error, 'error'); break; }
+          PEDIDOS = PEDIDOS.filter(p => p.id !== id);
+        } else { PEDIDOS = PEDIDOS.filter(p => p.id !== id); LS.set('pedidos', PEDIDOS); }
+        admPedidos();
+      }
       break;
+    case 'api-probar': {
+      const url = $('#cfg-api').value.trim().replace(/\/+$/, '');
+      if (!/^https:\/\/\S+$/i.test(url)) { toast('La dirección tiene que empezar con https://', 'error'); break; }
+      try {
+        const r = await fetch(url + '/api/salud'), j = await r.json();
+        if (r.ok && j.ok) toast(j.catalogo ? 'Conexión OK. El servidor ve tu datos.json.' : 'Conexión OK. El servidor todavía no ve tu datos.json (subilo a GitHub).', 'success');
+        else toast('El servidor respondió con un error.', 'error');
+      } catch (err) { toast('No se pudo conectar. Revisá la dirección y que ALLOWED_ORIGIN incluya este sitio.', 'error'); }
+      break;
+    }
     case 'zona-agregar': leerEnvios(); adm.env.zonas.push({ id: 'z' + uid(), nombre: 'Zona nueva', precio: 0 }); admEnvios(); break;
     case 'zona-borrar': {
       leerEnvios();
@@ -1557,13 +1741,15 @@ document.addEventListener('click', async e => {
     }
     case 'banner-quitar': $('#cfg-bimg').value = ''; $('#cfg-burl').value = ''; $('#cfg-prev').hidden = true; break;
     case 'dl-datos': descargar('datos.json', exportarCatalogo()); break;
-    case 'dl-respaldo': descargar('aroma-propio-respaldo.json', { ...exportarCatalogo(), pedidos: PEDIDOS }); break;
+    case 'dl-respaldo': descargar('aroma-propio-respaldo.json', API() ? exportarCatalogo() : { ...exportarCatalogo(), pedidos: PEDIDOS }); break;
     case 'borrar-pedidos':
       if (await confirmar('¿Borrar todos los pedidos?', 'Se borra el historial de este navegador. El stock no cambia.', 'Borrar')) { PEDIDOS = []; LS.set('pedidos', PEDIDOS); toast('Pedidos borrados', 'success'); }
       break;
     case 'reset-tienda':
       if (await confirmar('¿Volver a los datos de ejemplo?', 'Se pierden los productos, categorías, envíos y configuración de este navegador.', 'Restablecer')) {
-        D = seed(); VEND = {}; CARRITO = []; FAVS = []; guardar(); LS.set('vendidos', VEND); LS.set('carrito', CARRITO); LS.set('favs', FAVS);
+        const url0 = D.config.apiUrl;
+        D = seed(); D.config.apiUrl = url0 || ''; if (!API()) VEND = {}; CARRITO = []; guardar(); LS.set('vendidos', API() ? {} : VEND); LS.set('carrito', CARRITO);
+        if (!API()) { FAVS = []; LS.set('favs', FAVS); }
         adm.env = null; aplicarMarca(); pintarBadges(); renderCarro(); toast('Datos de ejemplo restaurados', 'success'); admDatos();
       }
       break;
@@ -1591,7 +1777,14 @@ document.addEventListener('change', async e => {
   else if (t.id === 'adm-ped-f') { adm.ped = t.value; admPedidos(); }
   else if (d.stk) { setStock(d.stk, t.value); admProdLista(); }
   else if (d.activo) { const p = prod(d.activo); if (p) { p.activo = t.checked; guardar(); admProdLista(); } }
-  else if (d.pedEst) { if (!cambiarEstado(d.pedEst, t.value)) admPedidos(); }
+  else if (d.pedEst) {
+    if (API()) {
+      const r = await api('/admin/pedidos/' + encodeURIComponent(d.pedEst), { metodo: 'PUT', admin: true, cuerpo: { estado: t.value } });
+      if (r.ok) { const i = PEDIDOS.findIndex(p => p.id === d.pedEst); if (i >= 0) PEDIDOS[i] = r.datos.pedido; await refrescarStock(); toast('Estado actualizado', 'success'); }
+      else toast(r.error, 'error');
+      admPedidos();
+    } else if (!cambiarEstado(d.pedEst, t.value)) admPedidos();
+  }
   else if (d.catn) {
     const c = D.categorias.find(x => x.id === d.catn), n = t.value.trim();
     if (!c) return;
@@ -1631,14 +1824,25 @@ document.addEventListener('submit', async e => {
     case 'form-registro': await registrar(); break;
     case 'form-cuenta': {
       const u = usuario(); if (!u) break;
-      Object.assign(u, { nombre: $('#u-nombre').value.trim() || u.nombre, telefono: $('#u-tel').value.trim(), direccion: $('#u-dir').value.trim(), entreCalles: $('#u-entre').value.trim(), ciudad: $('#u-ciudad').value.trim(), codigoPostal: $('#u-cp').value.trim(), provincia: $('#u-prov').value });
+      const datos = { nombre: $('#u-nombre').value.trim() || u.nombre, telefono: $('#u-tel').value.trim(), direccion: $('#u-dir').value.trim(), entreCalles: $('#u-entre').value.trim(), ciudad: $('#u-ciudad').value.trim(), codigoPostal: $('#u-cp').value.trim(), provincia: $('#u-prov').value };
+      if (API()) {
+        const r = await api('/yo', { metodo: 'PUT', cuerpo: datos });
+        if (!r.ok) { toast(r.error, 'error'); break; }
+        USER = r.datos.usuario; toast('Datos guardados', 'success'); break;
+      }
+      Object.assign(u, datos);
       LS.set('cuentas', CUENTAS); toast('Datos guardados', 'success'); break;
     }
     case 'form-pass-cli': {
       const u = usuario(); if (!u) break;
-      if (await hashPass($('#cp-actual').value, u.salt) !== u.hash) { toast('La contraseña actual no es correcta', 'error'); break; }
       const nueva = $('#cp-nueva').value;
       if (nueva.length < 6) { toast('La contraseña nueva necesita al menos 6 caracteres', 'error'); break; }
+      if (API()) {
+        const r = await api('/yo/password', { metodo: 'POST', cuerpo: { actual: $('#cp-actual').value, nueva } });
+        if (!r.ok) { toast(r.error, 'error'); break; }
+        e.target.reset(); toast('Contraseña actualizada', 'success'); break;
+      }
+      if (await hashPass($('#cp-actual').value, u.salt) !== u.hash) { toast('La contraseña actual no es correcta', 'error'); break; }
       u.salt = uid() + uid(); u.hash = await hashPass(nueva, u.salt); LS.set('cuentas', CUENTAS);
       e.target.reset(); toast('Contraseña actualizada', 'success'); break;
     }
@@ -1650,6 +1854,11 @@ document.addEventListener('submit', async e => {
       LS.set('admin', { salt, hash: await hashPass(a, salt) }); SS.set('ok', '1'); vistaAdmin(); break;
     }
     case 'form-adm-login': {
+      if (API()) {
+        const r = await api('/admin/login', { metodo: 'POST', publico: true, cuerpo: { password: $('#a-pass').value } });
+        if (r.ok) { SS.set('admtoken', r.datos.token); admCargado = false; vistaAdmin(); } else { toast(r.error, 'error'); $('#a-pass').select(); }
+        break;
+      }
       const c = LS.get('admin', null); if (!c) { vistaAdmin(); break; }
       if (await hashPass($('#a-pass').value, c.salt) === c.hash) { SS.set('ok', '1'); vistaAdmin(); }
       else { toast('Contraseña incorrecta', 'error'); $('#a-pass').select(); }
@@ -1670,14 +1879,16 @@ document.addEventListener('submit', async e => {
       if (guardar()) toast('Envíos guardados', 'success'); else toast('No se pudo guardar', 'error');
       adm.env = null; admEnvios(); break;
     case 'form-config': {
-      const mapa = $('#cfg-mapa').value.trim();
+      const mapa = $('#cfg-mapa').value.trim(), apiUrl = $('#cfg-api').value.trim().replace(/\/+$/, ''), apiAntes = D.config.apiUrl || '';
+      if (apiUrl && !/^https:\/\/\S+$/i.test(apiUrl)) { toast('La dirección del servidor tiene que empezar con https://', 'error'); break; }
       D.config = {
         ...D.config, nombreTienda: $('#cfg-nombre').value.trim() || 'Aroma Propio', bannerTitulo: $('#cfg-bt').value.trim(), bannerSubtitulo: $('#cfg-bs').value.trim(),
         bannerUrl: $('#cfg-bimg').value, whatsappNumero: normalizarWA($('#cfg-wa').value), envioGratisDesde: nMiles($('#cfg-eg')), aliasCbu: $('#cfg-alias').value.trim(),
         retiroLocal: $('#cfg-retiro').checked, emailContacto: $('#cfg-mail').value.trim(), direccionContacto: $('#cfg-dir').value.trim(),
-        mapaUrl: /^https?:\/\//i.test(mapa) ? mapa : ''
+        mapaUrl: /^https?:\/\//i.test(mapa) ? mapa : '', apiUrl
       };
       if (!guardar()) { toast('No se pudo guardar: el almacenamiento del navegador está lleno. Probá con una foto más chica o un link.', 'error'); break; }
+      if (apiUrl !== apiAntes) { toast('Guardado. Recargando la tienda…', 'success'); SS.del('admtoken'); setTimeout(() => location.reload(), 900); break; }
       aplicarMarca(); toast('Configuración guardada', 'success'); admConfig(); break;
     }
   }
@@ -1696,11 +1907,22 @@ async function init() {
   const t0 = performance.now();
   try {
     await cargarDatos();
+    let sync = null, sincronizado = false;
+    if (API()) {
+      VEND = LS.get('vend_srv', {});
+      sync = Promise.all([restaurarSesion(), refrescarStock()]).then(() => { sincronizado = true; });
+      await Promise.race([sync, new Promise(r => setTimeout(r, 4000))]);
+    }
     aplicarTema(LS.get('tema', 'claro') === 'noche' ? 'noche' : 'claro');
     $('#anio').textContent = new Date().getFullYear();
     aplicarMarca(); pintarBadges(); renderCarro();
     window.addEventListener('hashchange', router);
     pintarVista();
+    if (sync && !sincronizado) sync.then(() => {
+      pintarBadges(); renderCarro();
+      if (!/INPUT|TEXTAREA|SELECT/.test((document.activeElement && document.activeElement.tagName) || '')) pintarVista();
+    });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && API()) refrescarStock().then(pintarBadges); });
   } catch (err) {
     console.error(err);
     $('#vista').innerHTML = '<div class="cont"><div class="vacio"><p>No se pudo cargar la tienda. Recargá la página.</p></div></div>';
