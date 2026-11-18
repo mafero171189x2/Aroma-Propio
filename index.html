@@ -551,7 +551,7 @@ function seed() {
     config: {
       nombreTienda: 'Aroma Propio', bannerUrl: '', bannerTitulo: 'Encontrá el aroma que te represente',
       bannerSubtitulo: 'Envío gratis en compras desde $80.000', whatsappNumero: '', envioGratisDesde: 80000,
-      aliasCbu: '', retiroLocal: false, sinControlStock: true, emailContacto: '', direccionContacto: '', mapaUrl: ''
+      aliasCbu: '', retiroLocal: false, sinControlStock: true, precioGeneral: 0, emailContacto: '', direccionContacto: '', mapaUrl: ''
     },
     envios: seedEnvios()
   };
@@ -740,11 +740,15 @@ const prod = id => D.productos.find(p => p.id === id);
 const stockDe = p => Math.max(0, (Number(p.stock) || 0) - (VEND[p.id] || 0));
 const ventas = p => (Number(p.vendida) || 0) + (VEND[p.id] || 0);
 const enOferta = p => !!p.enOferta && Number(p.porcentajeDescuento) > 0;
-const precioFinal = p => enOferta(p) ? Math.round(p.precio * (1 - p.porcentajeDescuento / 100)) : p.precio;
+/* Precio propio del producto; si no tiene (0 o vacío) se usa el precio general de Configuración. */
+const precioBase = p => Number(p.precio) > 0 ? Number(p.precio) : (Number(D.config.precioGeneral) || 0);
+const precioFinal = p => enOferta(p) ? Math.round(precioBase(p) * (1 - p.porcentajeDescuento / 100)) : precioBase(p);
+/* Un perfume se vende solo si está visible y tiene algún precio. */
+const vendible = p => !!p.activo && precioBase(p) > 0;
 /* Con "sin control de stock" (o si el producto no tiene stock cargado) siempre se puede comprar y nunca se muestran cantidades. */
 const stockLibre = p => !!(D.config && D.config.sinControlStock) || p.stock == null || p.stock === '';
 const stockVenta = p => stockLibre(p) ? 99 : stockDe(p);
-const disponible = p => p.activo && stockVenta(p) > 0;
+const disponible = p => vendible(p) && stockVenta(p) > 0;
 const presentacion = p => [p.ml ? p.ml + ' ml' : '', p.concentracion].filter(Boolean).join(', ');
 const nombreLargo = p => p.nombre + (p.ml && !/\bml\b/i.test(p.nombre) ? ' ' + p.ml + ' ml' : '');
 
@@ -763,7 +767,7 @@ function depurarCarro() {
   let cambio = false;
   CARRITO = CARRITO.filter(i => {
     const p = prod(i.id);
-    if (!p || !p.activo || stockVenta(p) <= 0) { cambio = true; return false; }
+    if (!p || !vendible(p) || stockVenta(p) <= 0) { cambio = true; return false; }
     if (i.cant > stockVenta(p)) { i.cant = stockVenta(p); cambio = true; }
     return i.cant > 0;
   });
@@ -776,7 +780,7 @@ function guardarCarro() { LS.set('carrito', CARRITO); pintarBadges(); }
 
 function agregar(id, cant = 1) {
   const p = prod(id);
-  if (!p || !p.activo) { toast('Este perfume ya no está disponible', 'error'); return false; }
+  if (!p || !vendible(p)) { toast('Este perfume ya no está disponible', 'error'); return false; }
   const disp = stockVenta(p);
   if (disp <= 0) { toast('Este perfume no tiene stock', 'error'); return false; }
   const it = CARRITO.find(i => i.id === id);
@@ -1081,7 +1085,7 @@ function pintarChips() {
   el.innerHTML = chip('todas', 'Todos') + chip('ofertas', 'Ofertas') + D.categorias.map(c => chip(c.nombre, c.nombre)).join('');
 }
 function filtrar() {
-  let l = D.productos.filter(p => p.activo);
+  let l = D.productos.filter(vendible);
   if (filtro.cat === 'ofertas') l = l.filter(enOferta);
   else if (filtro.cat !== 'todas') l = l.filter(p => p.categoria === filtro.cat);
   const q = norm(filtro.q).trim();
@@ -1110,7 +1114,7 @@ function tarjeta(p) {
       <div class="pc-marca">${esc(p.marca || '')}</div>
       <h3 class="pc-nombre"><a href="#/producto/${id}">${esc(p.nombre)}</a></h3>
       <div class="pc-pres">${esc(presentacion(p))}</div>
-      <div class="pc-precios"><span class="precio">${fmt(precioFinal(p))}</span>${of ? `<span class="precio-old">${fmt(p.precio)}</span>` : ''}</div>
+      <div class="pc-precios"><span class="precio">${fmt(precioFinal(p))}</span>${of ? `<span class="precio-old">${fmt(precioBase(p))}</span>` : ''}</div>
       ${p.precioTransferencia !== false ? '<div class="transf">Precio con transferencia</div>' : ''}
       <span class="flex1"></span>
       <div class="pc-btns">
@@ -1122,7 +1126,7 @@ function tarjeta(p) {
 
 function vistaProducto(id) {
   const p = prod(id);
-  if (!p || !p.activo) { $('#vista').innerHTML = vacioHTML('Ese perfume no está disponible.'); return; }
+  if (!p || !vendible(p)) { $('#vista').innerHTML = vacioHTML('Ese perfume no está disponible.'); return; }
   const st = stockVenta(p), of = enOferta(p), fav = FAVS.includes(p.id);
   const imgs = p.imagenes && p.imagenes.length ? p.imagenes : [null];
   const notas = String(p.notas || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -1139,7 +1143,7 @@ function vistaProducto(id) {
         <p class="suave">${esc(p.marca || '')}</p>
         <h1>${esc(p.nombre)}</h1>
         ${presentacion(p) ? `<p class="suave">${esc(presentacion(p))}</p>` : ''}
-        <div class="pc-precios" style="margin-top:.8rem"><span class="precio">${fmt(precioFinal(p))}</span>${of ? `<span class="precio-old">${fmt(p.precio)}</span><span class="tag-of" style="padding:.1rem .5rem;border-radius:999px;font-weight:800;font-size:.8rem">-${p.porcentajeDescuento}%</span>` : ''}</div>
+        <div class="pc-precios" style="margin-top:.8rem"><span class="precio">${fmt(precioFinal(p))}</span>${of ? `<span class="precio-old">${fmt(precioBase(p))}</span><span class="tag-of" style="padding:.1rem .5rem;border-radius:999px;font-weight:800;font-size:.8rem">-${p.porcentajeDescuento}%</span>` : ''}</div>
         ${p.precioTransferencia !== false ? '<div class="transf">Precio con transferencia</div>' : ''}
         ${notas.length ? `<div class="notas" aria-label="Notas olfativas">${notas.map(n => `<span class="nota">${esc(n)}</span>`).join('')}</div>` : ''}
         ${p.descripcion ? `<p class="desc">${esc(p.descripcion)}</p>` : ''}
@@ -1157,7 +1161,7 @@ function vistaProducto(id) {
 }
 
 function vistaFavoritos() {
-  const l = FAVS.map(prod).filter(p => p && p.activo);
+  const l = FAVS.map(prod).filter(p => p && vendible(p));
   document.title = 'Favoritos — ' + D.config.nombreTienda;
   $('#vista').innerHTML = `<div class="cont"><h2 style="margin:1.2rem 0">Tus favoritos</h2>${l.length
     ? `<div class="grid" data-vista="compacta">${l.map(tarjeta).join('')}</div>`
@@ -1436,7 +1440,7 @@ function admProdLista() {
     return `<div class="fila-p">
       <div class="th">${imgTag(p)}</div>
       <div><strong>${esc(p.nombre)}</strong><br><span class="suave">${esc([p.marca, p.categoria, presentacion(p)].filter(Boolean).join(', '))}</span><br>
-        <span class="precio" style="font-size:1rem">${fmt(precioFinal(p))}</span>${enOferta(p) ? ` <span class="precio-old">${fmt(p.precio)}</span>` : ''}
+        <span class="precio" style="font-size:1rem">${fmt(precioFinal(p))}</span>${enOferta(p) ? ` <span class="precio-old">${fmt(precioBase(p))}</span>` : ''}${Number(p.precio) > 0 ? '' : ' <span class="ayuda">(precio general)</span>'}
         ${stockLibre(p) ? '' : st <= 0 ? ' <span class="sin">Sin stock</span>' : (st <= 3 ? ' <span class="bajo">Stock bajo</span>' : '')}</div>
       <div class="acc" style="grid-column:1/-1">
         <div class="stk"><button type="button" data-act="stk" data-id="${id}" data-d="-1" aria-label="Restar stock">${ico('menos')}</button><input class="inp" type="number" min="0" value="${st}" data-stk="${id}" aria-label="Stock de ${esc(p.nombre)}"><button type="button" data-act="stk" data-id="${id}" data-d="1" aria-label="Sumar stock">${ico('mas')}</button></div>
@@ -1474,7 +1478,7 @@ function formProducto(id) {
     <div class="campo"><label for="pf-notas">Notas olfativas (separadas por coma)</label><input class="inp" id="pf-notas" maxlength="160" placeholder="Ej: bergamota, jazmín, ámbar" value="${esc(v('notas'))}"></div>
     <div class="campo"><label for="pf-desc">Descripción</label><textarea class="inp" id="pf-desc" rows="4" maxlength="1200">${esc(v('descripcion'))}</textarea></div>
     <div class="fila2">
-      <div class="campo"><label for="pf-precio">Precio ($)</label><input class="inp" id="pf-precio" inputmode="numeric" data-miles required value="${p ? Number(p.precio).toLocaleString('es-AR') : ''}"></div>
+      <div class="campo"><label for="pf-precio">Precio ($)</label><input class="inp" id="pf-precio" inputmode="numeric" data-miles ${Number(D.config.precioGeneral) > 0 ? 'placeholder="Vacío = precio general"' : 'required'} value="${p && Number(p.precio) > 0 ? Number(p.precio).toLocaleString('es-AR') : ''}"></div>
       <div class="campo"><label for="pf-stock">Stock</label><input class="inp" id="pf-stock" type="number" min="0" step="1" ${D.config.sinControlStock ? 'placeholder="Opcional"' : 'required'} value="${p ? stockDe(p) : ''}"></div>
     </div>
     <label class="chk"><input type="checkbox" id="pf-oferta" ${p && p.enOferta ? 'checked' : ''}> En oferta</label>
@@ -1493,7 +1497,7 @@ function formProducto(id) {
 function guardarProducto() {
   const nombre = $('#pf-nombre').value.trim(), precio = nMiles($('#pf-precio'));
   if (!nombre) { toast('Poné un nombre', 'error'); return; }
-  if (precio <= 0) { toast('El precio tiene que ser mayor a 0', 'error'); return; }
+  if (precio <= 0 && !(Number(D.config.precioGeneral) > 0)) { toast('Poné un precio (o cargá el precio general en Configuración)', 'error'); return; }
   const oferta = $('#pf-oferta').checked, pct = Number($('#pf-pct').value) || 0;
   if (oferta && (pct < 1 || pct > 90)) { toast('El descuento tiene que estar entre 1 y 90 %', 'error'); return; }
   let cat = $('#pf-cat').value;
@@ -1608,6 +1612,7 @@ function admConfig() {
     <section class="panel"><h2>Ventas y pagos</h2>
       <div class="campo"><label for="cfg-wa">WhatsApp</label><input class="inp" id="cfg-wa" inputmode="tel" placeholder="Ej: 1130323702 (como lo dirías normalmente)" value="${esc(c.whatsappNumero)}">
         <span class="ayuda">Se guarda como: <b id="cfg-wa-prev">${esc(c.whatsappNumero) || '—'}</b>. Revisá que sea correcto.</span></div>
+      <div class="campo"><label for="cfg-pg">Precio general de los perfumes ($)</label><input class="inp" id="cfg-pg" inputmode="numeric" data-miles placeholder="Ej: 25.000" value="${c.precioGeneral ? Number(c.precioGeneral).toLocaleString('es-AR') : ''}"><span class="ayuda">Es el precio de todos los perfumes que no tengan uno propio (por ejemplo, todos los de 60 ml). Un perfume sin precio y sin precio general no se muestra en la tienda. Si cargás un precio en un perfume, ese manda.</span></div>
       <div class="campo"><label for="cfg-eg">Envío gratis desde ($)</label><input class="inp" id="cfg-eg" inputmode="numeric" data-miles placeholder="80.000" value="${c.envioGratisDesde ? Number(c.envioGratisDesde).toLocaleString('es-AR') : ''}"><span class="ayuda">Dejalo vacío para no ofrecer envío gratis.</span></div>
       <div class="campo"><label for="cfg-alias">Alias o CBU para transferencias</label><input class="inp" id="cfg-alias" value="${esc(c.aliasCbu)}"></div>
       <label class="chk"><input type="checkbox" id="cfg-sinstock" ${c.sinControlStock ? 'checked' : ''}><span><b>Vender sin controlar stock</b><br><span class="ayuda">Todos los perfumes se pueden comprar siempre y nunca se muestran cantidades. Desactivalo para usar el stock de cada producto.</span></span></label>
@@ -1647,7 +1652,14 @@ async function importarArchivo(file) {
   try {
     const j = JSON.parse(await file.text());
     if (!j || !Array.isArray(j.productos)) throw new Error('el archivo no tiene productos');
-    D = normalizarDatos(j);
+    if (j.sumar === true) {
+      /* Catálogo para sumar: agrega categorías y productos nuevos (o actualiza los del mismo id) sin tocar nada más. */
+      (j.categorias || []).forEach(c => { if (c && c.nombre && !D.categorias.some(x => norm(x.nombre) === norm(c.nombre))) D.categorias.push({ id: c.id || uid(), nombre: c.nombre }); });
+      j.productos.forEach(np => { const i = D.productos.findIndex(x => x.id === np.id); if (i >= 0) D.productos[i] = { ...D.productos[i], ...np }; else D.productos.push(np); });
+      if (!guardar()) throw new Error('no hay espacio en el navegador');
+      pintarBadges(); toast(`Se sumaron ${j.productos.length} perfumes`, 'success'); admDatos(); return;
+    }
+    D = normalizarDatos({ ...j, config: j.config || D.config, envios: j.envios || D.envios });
     if (!API()) { VEND = {}; LS.set('vendidos', VEND); }
     if (!API() && Array.isArray(j.pedidos)) { PEDIDOS = j.pedidos; LS.set('pedidos', PEDIDOS); }
     if (!guardar()) throw new Error('no hay espacio en el navegador');
@@ -1977,7 +1989,7 @@ document.addEventListener('submit', async e => {
       const mapa = $('#cfg-mapa').value.trim();
       D.config = {
         ...D.config, nombreTienda: $('#cfg-nombre').value.trim() || 'Aroma Propio', bannerTitulo: $('#cfg-bt').value.trim(), bannerSubtitulo: $('#cfg-bs').value.trim(),
-        bannerUrl: $('#cfg-bimg').value, whatsappNumero: normalizarWA($('#cfg-wa').value), envioGratisDesde: nMiles($('#cfg-eg')), aliasCbu: $('#cfg-alias').value.trim(),
+        bannerUrl: $('#cfg-bimg').value, whatsappNumero: normalizarWA($('#cfg-wa').value), envioGratisDesde: nMiles($('#cfg-eg')), precioGeneral: nMiles($('#cfg-pg')), aliasCbu: $('#cfg-alias').value.trim(),
         retiroLocal: $('#cfg-retiro').checked, sinControlStock: $('#cfg-sinstock').checked, emailContacto: $('#cfg-mail').value.trim(), direccionContacto: $('#cfg-dir').value.trim(),
         mapaUrl: /^https?:\/\//i.test(mapa) ? mapa : ''
       };
