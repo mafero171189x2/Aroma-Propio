@@ -594,7 +594,7 @@ const usuario = () => API() ? USER : (CUENTAS.find(c => c.id === SESION) || null
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 let vista = LS.get('vista', 'compacta');
 const filtro = { q: '', cat: 'todas', marca: '', orden: 'nuevos' };
-let pag = 1, porPag = [25, 100, 500].includes(Number(LS.get('porpag', 25))) ? Number(LS.get('porpag', 25)) : 25;
+let pag = 1, porPag = [50, 100].includes(Number(LS.get('porpag', 50))) ? Number(LS.get('porpag', 50)) : 50;
 
 function normalizarDatos(x) {
   const s = seed();
@@ -1093,7 +1093,7 @@ function vistaHome() {
         </div>
       </div>
       <div class="res-fila"><p class="ayuda" id="res-n"></p>
-        <label class="ayuda por-pag">Mostrar <select id="por-pag" class="inp" aria-label="Perfumes por página">${[25, 100, 500].map(n => `<option value="${n}" ${porPag === n ? 'selected' : ''}>${n}</option>`).join('')}</select> por página</label></div>
+        <label class="ayuda por-pag">Mostrar <select id="por-pag" class="inp" aria-label="Perfumes por página">${[50, 100].map(n => `<option value="${n}" ${porPag === n ? 'selected' : ''}>${n}</option>`).join('')}</select> por página</label></div>
       <div class="grid" id="grid" data-vista="${vista}"></div>
       <nav class="pager" id="pager" aria-label="Páginas"></nav>
     </section>
@@ -2016,7 +2016,7 @@ document.addEventListener('input', e => {
 
 document.addEventListener('change', async e => {
   const t = e.target, d = t.dataset || {};
-  if (t.id === 'por-pag') { porPag = Number(t.value) || 25; LS.set('porpag', porPag); pintarGrid(); }
+  if (t.id === 'por-pag') { porPag = Number(t.value) || 50; LS.set('porpag', porPag); pintarGrid(); }
   else if (t.id === 'orden') { filtro.orden = t.value; pintarGrid(); }
   else if (t.id === 'marca') { filtro.marca = t.value; pintarGrid(); }
   else if (t.id === 'adm-f') { adm.pf = t.value; admProdLista(); }
