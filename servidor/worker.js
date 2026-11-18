@@ -450,7 +450,7 @@ async function guardarTienda(req, env) {
   const b = await leerJson(req, 8e6), version = Number(b.version), d = b.datos;
   if (!Number.isInteger(version) || version < 0) throw new Fallo(400, "Falta la versi\xF3n del cat\xE1logo.");
   if (!d || typeof d !== "object" || !Array.isArray(d.productos) || !Array.isArray(d.categorias) || !d.config || typeof d.config !== "object" || !d.envios || typeof d.envios !== "object") throw new Fallo(400, "El cat\xE1logo enviado no es v\xE1lido.");
-  if (d.productos.length > 400 || d.categorias.length > 60) throw new Fallo(413, "El cat\xE1logo es demasiado grande.");
+  if (d.productos.length > 1500 || d.categorias.length > 60) throw new Fallo(413, "El cat\xE1logo es demasiado grande.");
   const vistos = /* @__PURE__ */ new Set();
   for (const p of d.productos) {
     if (!p || typeof p !== "object" || !idProducto(p.id) || vistos.has(String(p.id))) throw new Fallo(400, "Hay un producto con datos inv\xE1lidos.");
