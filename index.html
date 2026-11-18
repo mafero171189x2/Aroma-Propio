@@ -240,6 +240,8 @@ details p{margin-top:.5rem;color:var(--tinta-2)}
 .foot{margin-top:3rem;border-top:1px solid var(--borde);padding:1.6rem 0 2.4rem;color:var(--suave);font-size:.9rem}
 .foot-in{display:flex;flex-wrap:wrap;gap:.8rem 1.5rem;justify-content:space-between;align-items:center}
 .foot a{text-decoration:none;font-weight:600}
+.foot .foot-adm{font-size:.55rem;font-weight:400;opacity:.35}
+.foot .foot-adm:hover,.foot .foot-adm:focus-visible{opacity:.8}
 
 /* Toasts y diálogos */
 #toasts{position:fixed;left:50%;bottom:calc(1rem + env(safe-area-inset-bottom,0));transform:translateX(-50%);z-index:400;display:grid;gap:.5rem;width:min(92vw,420px);pointer-events:none}
@@ -376,7 +378,7 @@ html[data-tema="noche"] .bajo{color:var(--sol)}
 <footer class="foot" id="foot">
   <div class="cont foot-in">
     <span>&copy; <span id="anio"></span> <span id="foot-nombre">Aroma Propio</span>. Todos los derechos reservados.</span>
-    <span><a href="#/contacto">Contacto</a> &nbsp; <a href="#/cuenta">Mis pedidos</a> &nbsp; <a href="#/admin">Panel</a></span>
+    <a class="foot-adm" href="#/admin" aria-label="Panel">Panel</a>
   </div>
 </footer>
 
