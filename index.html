@@ -523,6 +523,7 @@ function seedEnvios() {
   ['Catamarca', 'Chaco', 'Corrientes', 'Formosa', 'Jujuy', 'La Rioja', 'Misiones', 'Salta', 'San Juan', 'Santiago del Estero', 'Tucumán'].forEach(p => m[p] = z3);
   ['Chubut', 'Neuquén', 'Río Negro', 'Santa Cruz', 'Tierra del Fuego'].forEach(p => m[p] = z4);
   return {
+    gratisTodo: true,
     adicional: 2000,
     zonas: [{ id: z1, nombre: 'CABA y GBA', precio: 6000 }, { id: z2, nombre: 'Centro', precio: 8000 }, { id: z3, nombre: 'Norte', precio: 10000 }, { id: z4, nombre: 'Patagonia', precio: 13000 }],
     provincias: m
@@ -548,7 +549,7 @@ function seed() {
     config: {
       nombreTienda: 'Aroma Propio', bannerUrl: '', bannerTitulo: 'Encontrá el aroma que te represente',
       bannerSubtitulo: 'Envío gratis en compras desde $80.000', whatsappNumero: '', envioGratisDesde: 80000,
-      aliasCbu: '', retiroLocal: false, emailContacto: '', direccionContacto: '', mapaUrl: ''
+      aliasCbu: '', retiroLocal: false, sinControlStock: true, emailContacto: '', direccionContacto: '', mapaUrl: ''
     },
     envios: seedEnvios()
   };
@@ -738,7 +739,10 @@ const stockDe = p => Math.max(0, (Number(p.stock) || 0) - (VEND[p.id] || 0));
 const ventas = p => (Number(p.vendida) || 0) + (VEND[p.id] || 0);
 const enOferta = p => !!p.enOferta && Number(p.porcentajeDescuento) > 0;
 const precioFinal = p => enOferta(p) ? Math.round(p.precio * (1 - p.porcentajeDescuento / 100)) : p.precio;
-const disponible = p => p.activo && stockDe(p) > 0;
+/* Con "sin control de stock" (o si el producto no tiene stock cargado) siempre se puede comprar y nunca se muestran cantidades. */
+const stockLibre = p => !!(D.config && D.config.sinControlStock) || p.stock == null || p.stock === '';
+const stockVenta = p => stockLibre(p) ? 99 : stockDe(p);
+const disponible = p => p.activo && stockVenta(p) > 0;
 const presentacion = p => [p.ml ? p.ml + ' ml' : '', p.concentracion].filter(Boolean).join(', ');
 const nombreLargo = p => p.nombre + (p.ml && !/\bml\b/i.test(p.nombre) ? ' ' + p.ml + ' ml' : '');
 
@@ -757,8 +761,8 @@ function depurarCarro() {
   let cambio = false;
   CARRITO = CARRITO.filter(i => {
     const p = prod(i.id);
-    if (!p || !p.activo || stockDe(p) <= 0) { cambio = true; return false; }
-    if (i.cant > stockDe(p)) { i.cant = stockDe(p); cambio = true; }
+    if (!p || !p.activo || stockVenta(p) <= 0) { cambio = true; return false; }
+    if (i.cant > stockVenta(p)) { i.cant = stockVenta(p); cambio = true; }
     return i.cant > 0;
   });
   if (cambio) LS.set('carrito', CARRITO);
@@ -771,14 +775,14 @@ function guardarCarro() { LS.set('carrito', CARRITO); pintarBadges(); }
 function agregar(id, cant = 1) {
   const p = prod(id);
   if (!p || !p.activo) { toast('Este perfume ya no está disponible', 'error'); return false; }
-  const disp = stockDe(p);
+  const disp = stockVenta(p);
   if (disp <= 0) { toast('Este perfume no tiene stock', 'error'); return false; }
   const it = CARRITO.find(i => i.id === id);
   const actual = it ? it.cant : 0;
   if (actual >= disp) { toast('Ya tenés todas las unidades disponibles en el carrito', 'error'); return false; }
   const suma = Math.min(cant, disp - actual);
   if (it) it.cant += suma; else CARRITO.push({ id, cant: suma });
-  if (suma < cant) toast(`Solo quedan ${disp} unidades`, 'error');
+  if (suma < cant) toast('No hay más unidades disponibles de este perfume', 'error');
   guardarCarro();
   renderCarro();
   return true;
@@ -788,7 +792,7 @@ function cambiarCant(id, d) {
   const p = prod(id);
   const n = it.cant + d;
   if (n <= 0) CARRITO = CARRITO.filter(i => i.id !== id);
-  else if (p && n > stockDe(p)) { toast(`Solo quedan ${stockDe(p)} unidades`, 'error'); return; }
+  else if (p && n > stockVenta(p)) { toast('No hay más unidades disponibles de este perfume', 'error'); return; }
   else it.cant = n;
   guardarCarro(); renderCarro();
 }
@@ -804,6 +808,7 @@ function pintarBadges() {
 function calcEnvio(prov, arts, sub) {
   if (!prov) return { ok: false, costo: 0, motivo: 'Elegí tu provincia para calcular el envío.' };
   const z = D.envios.zonas.find(x => x.id === D.envios.provincias[prov]);
+  if (D.envios.gratisTodo) return { ok: true, costo: 0, gratis: true, zona: { id: z ? z.id : 'gratis', nombre: z ? z.nombre : 'Envío gratis', precio: 0 } };
   if (!z) return { ok: false, costo: 0, motivo: 'No hay tarifa cargada para tu zona. Consultanos por WhatsApp.' };
   const min = Number(D.config.envioGratisDesde) || 0;
   if (min > 0 && sub >= min) return { ok: true, costo: 0, gratis: true, zona: z };
@@ -855,12 +860,14 @@ function renderCarro() {
   </div>`).join('');
   const sub = subtotal(), min = Number(D.config.envioGratisDesde) || 0;
   let prog = '';
-  if (min > 0) {
+  if (D.envios.gratisTodo) {
+    prog = `<div class="ayuda">¡Envío gratis a todo el país!</div>`;
+  } else if (min > 0) {
     const pct = Math.min(100, Math.round(sub / min * 100));
     prog = `<div class="ayuda">${sub >= min ? '¡Tu envío es gratis!' : `Te faltan ${fmt(min - sub)} para el envío gratis`}</div><div class="barra"><i style="width:${pct}%"></i></div>`;
   }
   f.innerHTML = `${prog}<div class="fila-t total"><span>Subtotal</span><span>${fmt(sub)}</span></div>
-    <p class="ayuda" style="margin:.3rem 0 .8rem">El envío se calcula al finalizar la compra.</p>
+    <p class="ayuda" style="margin:.3rem 0 .8rem">${D.envios.gratisTodo ? 'Envío gratis a todas las provincias.' : 'El envío se calcula al finalizar la compra.'}</p>
     <button class="btn block" type="button" data-act="checkout">Finalizar compra</button>
     <button class="btn sec block chico" type="button" data-act="carro-vaciar" style="margin-top:.5rem">Vaciar carrito</button>`;
 }
@@ -965,7 +972,7 @@ function confirmarPedido() {
   if (enviando) return;
   const ls = lineas();
   if (!ls.length) { cerrar('#co'); return; }
-  for (const l of ls) if (stockDe(l.p) < l.cant) { toast(`${l.p.nombre}: quedan ${stockDe(l.p)}`, 'error'); renderCarro(); return; }
+  for (const l of ls) if (stockVenta(l.p) < l.cant) { toast(`${l.p.nombre}: no hay unidades suficientes`, 'error'); renderCarro(); return; }
   const retiro = esRetiro(), sub = subtotal();
   const cli = {
     nombre: $('#c-nombre').value.trim(), telefono: $('#c-tel').value.trim(),
@@ -1114,7 +1121,7 @@ function tarjeta(p) {
 function vistaProducto(id) {
   const p = prod(id);
   if (!p || !p.activo) { $('#vista').innerHTML = vacioHTML('Ese perfume no está disponible.'); return; }
-  const st = stockDe(p), of = enOferta(p), fav = FAVS.includes(p.id);
+  const st = stockVenta(p), of = enOferta(p), fav = FAVS.includes(p.id);
   const imgs = p.imagenes && p.imagenes.length ? p.imagenes : [null];
   const notas = String(p.notas || '').split(',').map(s => s.trim()).filter(Boolean);
   const rel = D.productos.filter(x => x.id !== p.id && x.activo && disponible(x) && p.categoria && x.categoria === p.categoria).slice(0, 4);
@@ -1134,7 +1141,7 @@ function vistaProducto(id) {
         ${p.precioTransferencia !== false ? '<div class="transf">Precio con transferencia</div>' : ''}
         ${notas.length ? `<div class="notas" aria-label="Notas olfativas">${notas.map(n => `<span class="nota">${esc(n)}</span>`).join('')}</div>` : ''}
         ${p.descripcion ? `<p class="desc">${esc(p.descripcion)}</p>` : ''}
-        ${st === 0 ? '<p class="aviso-stock">Sin stock por el momento</p>' : (st <= 5 ? `<p class="aviso-stock">${st === 1 ? 'Queda 1 unidad' : `Quedan ${st} unidades`}</p>` : '')}
+        ${st === 0 ? '<p class="aviso-stock">Sin stock por el momento</p>' : ''}
         <div class="compra">
           <div class="qty"><button type="button" data-act="pq" data-d="-1" aria-label="Menos">${ico('menos')}</button><span id="pq-v">1</span><button type="button" data-act="pq" data-d="1" aria-label="Más">${ico('mas')}</button></div>
           <button class="btn" type="button" data-act="pdp-add" data-id="${esc(p.id)}" ${st === 0 ? 'disabled' : ''}>${ico('bolsa')} Agregar al carrito</button>
@@ -1316,7 +1323,7 @@ function vistaContacto() {
     <section class="panel"><h2>Preguntas frecuentes</h2>
       <details><summary>¿Cómo compro?</summary><p>Elegí tus perfumes, agregalos al carrito y completá tus datos. Al confirmar te llevamos a WhatsApp para coordinar el pago por transferencia y enviarnos el comprobante.</p></details>
       <details><summary>¿Cómo se paga?</summary><p>Por transferencia bancaria. Los precios publicados ya son con transferencia. Al confirmar el pedido ves el alias o CBU para transferir.</p></details>
-      <details><summary>¿Cómo se calcula el envío?</summary><p>Depende de tu provincia y de la cantidad de perfumes. ${Number(c.envioGratisDesde) > 0 ? `En compras desde ${fmt(c.envioGratisDesde)} el envío es gratis.` : ''} Lo ves antes de confirmar el pedido.</p></details>
+      <details><summary>¿Cómo se calcula el envío?</summary><p>${D.envios.gratisTodo ? 'El envío es gratis a todas las provincias del país.' : 'Depende de tu provincia y de la cantidad de perfumes.'} ${!D.envios.gratisTodo && Number(c.envioGratisDesde) > 0 ? `En compras desde ${fmt(c.envioGratisDesde)} el envío es gratis.` : ''} Lo ves antes de confirmar el pedido.</p></details>
       ${c.retiroLocal ? '<details><summary>¿Puedo retirar en persona?</summary><p>Sí. Al finalizar la compra elegí “Retiro en el local” y coordinamos día y horario por WhatsApp.</p></details>' : ''}
       <details><summary>¿Dónde veo mis pedidos?</summary><p>En <a href="#/cuenta">Mi cuenta</a>. Ahí también podés retomar la conversación por WhatsApp si quedó algo por coordinar.</p></details>
     </section></div>`;
@@ -1394,7 +1401,7 @@ function adminLogin() {
 function admResumen() {
   const vivos = PEDIDOS.filter(p => p.estado !== 'cancelado');
   const ventasTot = vivos.reduce((a, p) => a + p.subtotal, 0), envTot = vivos.reduce((a, p) => a + p.envio, 0);
-  const sinStock = D.productos.filter(p => stockDe(p) <= 0), bajo = D.productos.filter(p => stockDe(p) > 0 && stockDe(p) <= 3);
+  const sinStock = D.productos.filter(p => !stockLibre(p) && stockDe(p) <= 0), bajo = D.productos.filter(p => !stockLibre(p) && stockDe(p) > 0 && stockDe(p) <= 3);
   const pend = PEDIDOS.filter(p => p.estado === 'pendiente').length;
   const card = (t, v, alerta) => `<div class="stat ${alerta ? 'alerta' : ''}"><span>${t}</span><b>${v}</b></div>`;
   $('#adm-cont').innerHTML = `<div class="stats">
@@ -1428,7 +1435,7 @@ function admProdLista() {
       <div class="th">${imgTag(p)}</div>
       <div><strong>${esc(p.nombre)}</strong><br><span class="suave">${esc([p.marca, p.categoria, presentacion(p)].filter(Boolean).join(', '))}</span><br>
         <span class="precio" style="font-size:1rem">${fmt(precioFinal(p))}</span>${enOferta(p) ? ` <span class="precio-old">${fmt(p.precio)}</span>` : ''}
-        ${st <= 0 ? ' <span class="sin">Sin stock</span>' : (st <= 3 ? ' <span class="bajo">Stock bajo</span>' : '')}</div>
+        ${stockLibre(p) ? '' : st <= 0 ? ' <span class="sin">Sin stock</span>' : (st <= 3 ? ' <span class="bajo">Stock bajo</span>' : '')}</div>
       <div class="acc" style="grid-column:1/-1">
         <div class="stk"><button type="button" data-act="stk" data-id="${id}" data-d="-1" aria-label="Restar stock">${ico('menos')}</button><input class="inp" type="number" min="0" value="${st}" data-stk="${id}" aria-label="Stock de ${esc(p.nombre)}"><button type="button" data-act="stk" data-id="${id}" data-d="1" aria-label="Sumar stock">${ico('mas')}</button></div>
         <label class="chk" style="margin:0"><input type="checkbox" data-activo="${id}" ${p.activo ? 'checked' : ''}> Visible</label>
@@ -1466,7 +1473,7 @@ function formProducto(id) {
     <div class="campo"><label for="pf-desc">Descripción</label><textarea class="inp" id="pf-desc" rows="4" maxlength="1200">${esc(v('descripcion'))}</textarea></div>
     <div class="fila2">
       <div class="campo"><label for="pf-precio">Precio ($)</label><input class="inp" id="pf-precio" inputmode="numeric" data-miles required value="${p ? Number(p.precio).toLocaleString('es-AR') : ''}"></div>
-      <div class="campo"><label for="pf-stock">Stock</label><input class="inp" id="pf-stock" type="number" min="0" step="1" required value="${p ? stockDe(p) : ''}"></div>
+      <div class="campo"><label for="pf-stock">Stock</label><input class="inp" id="pf-stock" type="number" min="0" step="1" ${D.config.sinControlStock ? 'placeholder="Opcional"' : 'required'} value="${p ? stockDe(p) : ''}"></div>
     </div>
     <label class="chk"><input type="checkbox" id="pf-oferta" ${p && p.enOferta ? 'checked' : ''}> En oferta</label>
     <div class="campo" id="pf-pct-w" ${p && p.enOferta ? '' : 'hidden'}><label for="pf-pct">Descuento (%)</label><input class="inp" id="pf-pct" type="number" min="1" max="90" value="${esc(p && p.enOferta ? p.porcentajeDescuento : '')}"></div>
@@ -1564,7 +1571,8 @@ function admPedidos() {
 function admEnvios() {
   if (!adm.env) adm.env = JSON.parse(JSON.stringify(D.envios));
   const e = adm.env;
-  $('#adm-cont').innerHTML = `<form id="form-envios"><section class="panel"><h2>Zonas y precios</h2>
+  $('#adm-cont').innerHTML = `<form id="form-envios"><section class="panel"><label class="chk"><input type="checkbox" id="env-gratis" ${e.gratisTodo ? 'checked' : ''}><span><b>Envío gratis a todas las provincias</b><br><span class="ayuda">Con esto activado nadie paga envío y no hace falta cargar zonas ni provincias. Desactivalo para cobrar según las zonas de abajo.</span></span></label></section>
+    <section class="panel"><h2>Zonas y precios</h2>
     ${e.zonas.map((z, i) => `<div class="zona"><input class="inp" value="${esc(z.nombre)}" data-zn="${i}" aria-label="Nombre de la zona" maxlength="40"><input class="inp" inputmode="numeric" data-miles data-zp="${i}" value="${Number(z.precio).toLocaleString('es-AR')}" aria-label="Precio de la zona"><button class="ib chico" type="button" data-act="zona-borrar" data-i="${i}" aria-label="Eliminar zona">${ico('papelera')}</button></div>`).join('')}
     <button class="btn sec chico" type="button" data-act="zona-agregar">${ico('mas')} Agregar zona</button>
     <div class="campo" style="margin-top:1rem"><label for="env-adic">Adicional por cada artículo extra ($)</label><input class="inp" id="env-adic" inputmode="numeric" data-miles value="${Number(e.adicional || 0).toLocaleString('es-AR')}"></div></section>
@@ -1577,6 +1585,7 @@ function leerEnvios() {
   $$('[data-zn]').forEach(i => { e.zonas[+i.dataset.zn].nombre = i.value.trim() || 'Zona'; });
   $$('[data-zp]').forEach(i => { e.zonas[+i.dataset.zp].precio = nMiles(i); });
   e.adicional = nMiles($('#env-adic'));
+  e.gratisTodo = $('#env-gratis').checked;
   $$('[data-prov]').forEach(s => { if (s.value) e.provincias[s.dataset.prov] = s.value; else delete e.provincias[s.dataset.prov]; });
 }
 
@@ -1599,6 +1608,7 @@ function admConfig() {
         <span class="ayuda">Se guarda como: <b id="cfg-wa-prev">${esc(c.whatsappNumero) || '—'}</b>. Revisá que sea correcto.</span></div>
       <div class="campo"><label for="cfg-eg">Envío gratis desde ($)</label><input class="inp" id="cfg-eg" inputmode="numeric" data-miles placeholder="80.000" value="${c.envioGratisDesde ? Number(c.envioGratisDesde).toLocaleString('es-AR') : ''}"><span class="ayuda">Dejalo vacío para no ofrecer envío gratis.</span></div>
       <div class="campo"><label for="cfg-alias">Alias o CBU para transferencias</label><input class="inp" id="cfg-alias" value="${esc(c.aliasCbu)}"></div>
+      <label class="chk"><input type="checkbox" id="cfg-sinstock" ${c.sinControlStock ? 'checked' : ''}><span><b>Vender sin controlar stock</b><br><span class="ayuda">Todos los perfumes se pueden comprar siempre y nunca se muestran cantidades. Desactivalo para usar el stock de cada producto.</span></span></label>
       <label class="chk"><input type="checkbox" id="cfg-retiro" ${c.retiroLocal ? 'checked' : ''}><span><b>Permitir retiro en el local</b><br><span class="ayuda">El cliente elige entre envío o retiro y, si retira, no paga envío.</span></span></label></section>
     <section class="panel"><h2>Contacto</h2>
       <div class="campo"><label for="cfg-mail">Email</label><input class="inp" id="cfg-mail" type="email" value="${esc(c.emailContacto)}"></div>
@@ -1740,7 +1750,7 @@ document.addEventListener('click', async e => {
     case 'gal': { const p = prod(ruta().b); if (!p) break; $('#gal-main').innerHTML = imgTag(p, +el.dataset.i); $$('.gal-th button').forEach(b => b.classList.toggle('on', b === el)); break; }
     case 'pq': {
       const p = prod(ruta().b); if (!p) break;
-      const v = $('#pq-v'); const n = Math.min(Math.max(1, stockDe(p)), Math.max(1, (+v.textContent || 1) + (+el.dataset.d)));
+      const v = $('#pq-v'); const n = Math.min(Math.max(1, stockVenta(p)),Math.max(1, (+v.textContent || 1) + (+el.dataset.d)));
       v.textContent = n; break;
     }
     case 'pdp-add': if (agregar(id, +$('#pq-v').textContent || 1)) toast('Agregado al carrito', 'success'); break;
@@ -1966,7 +1976,7 @@ document.addEventListener('submit', async e => {
       D.config = {
         ...D.config, nombreTienda: $('#cfg-nombre').value.trim() || 'Aroma Propio', bannerTitulo: $('#cfg-bt').value.trim(), bannerSubtitulo: $('#cfg-bs').value.trim(),
         bannerUrl: $('#cfg-bimg').value, whatsappNumero: normalizarWA($('#cfg-wa').value), envioGratisDesde: nMiles($('#cfg-eg')), aliasCbu: $('#cfg-alias').value.trim(),
-        retiroLocal: $('#cfg-retiro').checked, emailContacto: $('#cfg-mail').value.trim(), direccionContacto: $('#cfg-dir').value.trim(),
+        retiroLocal: $('#cfg-retiro').checked, sinControlStock: $('#cfg-sinstock').checked, emailContacto: $('#cfg-mail').value.trim(), direccionContacto: $('#cfg-dir').value.trim(),
         mapaUrl: /^https?:\/\//i.test(mapa) ? mapa : ''
       };
       if (!guardar()) { toast('No se pudo guardar: el almacenamiento del navegador está lleno. Probá con una foto más chica o un link.', 'error'); break; }
