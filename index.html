@@ -138,6 +138,10 @@ body.en-admin .hdr,body.en-admin .foot{display:none}
 .vtog button.on{background:var(--btn-fondo);color:var(--btn-texto)}
 
 /* Grilla y tarjetas */
+.res-fila{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
+.por-pag{display:flex;align-items:center;gap:.4rem;margin:0}.por-pag select{width:auto;min-height:36px;padding:.2rem .5rem}
+.pager{display:flex;justify-content:center;align-items:center;gap:.35rem;flex-wrap:wrap;margin:1.4rem 0 .4rem}
+.pager .chip{min-width:40px;min-height:40px;justify-content:center}.pager .chip:disabled{opacity:.4;cursor:default}.pager-p{color:var(--suave)}
 .grid{display:grid;gap:.8rem;grid-template-columns:repeat(2,minmax(0,1fr))}
 .grid[data-vista="detalle"]{grid-template-columns:1fr}
 @media(min-width:640px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}.grid[data-vista="detalle"]{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -590,6 +594,7 @@ const usuario = () => API() ? USER : (CUENTAS.find(c => c.id === SESION) || null
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 let vista = LS.get('vista', 'compacta');
 const filtro = { q: '', cat: 'todas', marca: '', orden: 'nuevos' };
+let pag = 1, porPag = [25, 100, 500].includes(Number(LS.get('porpag', 25))) ? Number(LS.get('porpag', 25)) : 25;
 
 function normalizarDatos(x) {
   const s = seed();
@@ -1087,8 +1092,10 @@ function vistaHome() {
           <button type="button" data-act="vista" data-v="detalle" class="${vista === 'detalle' ? 'on' : ''}" aria-label="Vista con foto grande" aria-pressed="${vista === 'detalle'}">${ico('detalle')}</button>
         </div>
       </div>
-      <p class="ayuda" id="res-n" style="margin-bottom:.6rem"></p>
+      <div class="res-fila"><p class="ayuda" id="res-n"></p>
+        <label class="ayuda por-pag">Mostrar <select id="por-pag" class="inp" aria-label="Perfumes por página">${[25, 100, 500].map(n => `<option value="${n}" ${porPag === n ? 'selected' : ''}>${n}</option>`).join('')}</select> por página</label></div>
       <div class="grid" id="grid" data-vista="${vista}"></div>
+      <nav class="pager" id="pager" aria-label="Páginas"></nav>
     </section>
   </div>`;
   if (foto) $('#hero').style.backgroundImage = 'url(' + JSON.stringify(c.bannerUrl) + ')';
@@ -1130,11 +1137,28 @@ function filtrar() {
     : new Date(b.fecha) - new Date(a.fecha));
   return [...l.filter(disponible), ...l.filter(p => !disponible(p))];
 }
-function pintarGrid() {
+function pintarGrid(mantener) {
   const g = $('#grid'); if (!g) return;
   const l = filtrar();
-  $('#res-n').textContent = l.length ? `${l.length} ${l.length === 1 ? 'perfume' : 'perfumes'}` : '';
-  g.innerHTML = l.length ? l.map(tarjeta).join('') : `<div class="vacio" style="grid-column:1/-1">${ico('buscar')}<p>No encontramos perfumes con ese filtro.</p><button class="btn sec" type="button" data-act="limpiar">Ver todos</button></div>`;
+  const total = Math.max(1, Math.ceil(l.length / porPag));
+  pag = mantener ? Math.min(Math.max(1, pag), total) : 1;
+  const ini = (pag - 1) * porPag, vis = l.slice(ini, ini + porPag);
+  $('#res-n').textContent = l.length ? `${l.length} ${l.length === 1 ? 'perfume' : 'perfumes'}${total > 1 ? ` · mostrando ${ini + 1}–${ini + vis.length}` : ''}` : '';
+  pintarPager(total);
+  g.innerHTML = l.length ? vis.map(tarjeta).join('') : `<div class="vacio" style="grid-column:1/-1">${ico('buscar')}<p>No encontramos perfumes con ese filtro.</p><button class="btn sec" type="button" data-act="limpiar">Ver todos</button></div>`;
+}
+function pintarPager(total) {
+  const el = $('#pager'); if (!el) return;
+  if (total <= 1) { el.innerHTML = ''; return; }
+  const n = new Set([1, total, pag - 1, pag, pag + 1]);
+  const lista = [...n].filter(x => x >= 1 && x <= total).sort((a, b) => a - b);
+  let h = `<button type="button" class="chip" data-act="pag" data-p="${pag - 1}" ${pag === 1 ? 'disabled' : ''} aria-label="Página anterior">‹</button>`, ult = 0;
+  for (const x of lista) {
+    if (x - ult > 1) h += '<span class="pager-p">…</span>';
+    h += `<button type="button" class="chip ${x === pag ? 'on' : ''}" data-act="pag" data-p="${x}" ${x === pag ? 'aria-current="page"' : ''}>${x}</button>`; ult = x;
+  }
+  h += `<button type="button" class="chip" data-act="pag" data-p="${pag + 1}" ${pag === total ? 'disabled' : ''} aria-label="Página siguiente">›</button>`;
+  el.innerHTML = h;
 }
 function tarjeta(p) {
   const sin = !disponible(p), fav = FAVS.includes(p.id), of = enOferta(p), id = esc(p.id);
@@ -1445,12 +1469,51 @@ function admResumen() {
   $('#adm-cont').innerHTML = `<div class="stats">
     ${card('Productos', D.productos.length)}${card('Sin stock', sinStock.length, sinStock.length > 0)}${card('Pedidos pendientes', pend, pend > 0)}
     ${card('Ventas (productos)', fmt(ventasTot))}${card('Envíos cobrados', fmt(envTot))}</div>
+    ${API() ? `<section class="panel"><h2>Avisos de pedidos nuevos</h2>
+      <p class="suave" id="push-msg" style="margin-bottom:.8rem">Revisando…</p>
+      <div id="push-bot" style="display:flex;gap:.5rem;flex-wrap:wrap"></div></section>` : ''}
     <section class="panel"><h2>Stock para revisar</h2>
     ${sinStock.length + bajo.length ? [...sinStock.map(p => [p, 'Sin stock', 'sin']), ...bajo.map(p => [p, `Quedan ${stockDe(p)}`, 'bajo'])].map(([p, t, c]) => `<div class="fila-t"><span>${esc(p.nombre)}</span><span class="${c}">${t}</span></div>`).join('') : '<p class="suave">Todo el catálogo tiene stock.</p>'}
     </section>
     <p class="aviso">${API() ? 'Todo lo que cambies acá (productos, stock, precios, envíos y configuración) se guarda solo en el servidor y se ve al instante en la tienda. Los pedidos de tus clientes aparecen en la pestaña Pedidos.' : 'Esta versión no tiene servidor: los pedidos de tus clientes te llegan por WhatsApp. Acá se registran los pedidos hechos desde este navegador. Para que todos vean el mismo catálogo, publicá el archivo <b>datos.json</b> desde la sección Datos.'}</p>`;
+  pintarPush();
 }
 
+/* ---------- avisos push ---------- */
+const PUSH_OK = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const aU8 = b => { const r = atob(b.replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(r, c => c.charCodeAt(0)); };
+async function swPush() { return navigator.serviceWorker.register('sw.js').then(() => navigator.serviceWorker.ready); }
+async function pintarPush() {
+  const msg = $('#push-msg'), bot = $('#push-bot'); if (!msg) return;
+  const btn = (act, t, sec) => `<button class="btn ${sec ? 'sec ' : ''}chico" type="button" data-act="${act}">${t}</button>`;
+  if (!PUSH_OK) { msg.textContent = 'Este navegador no permite avisos. Abrí el panel con Google Chrome.'; bot.innerHTML = ''; return; }
+  if (Notification.permission === 'denied') { msg.textContent = 'Bloqueaste las notificaciones de este sitio. Habilitalas desde los ajustes del sitio en Chrome y volvé a intentar.'; bot.innerHTML = ''; return; }
+  let sub = null;
+  try { sub = await (await swPush()).pushManager.getSubscription(); } catch (e) {}
+  if (sub) { msg.textContent = '✅ Este dispositivo recibe un aviso cada vez que entra un pedido.'; bot.innerHTML = btn('push-probar', 'Enviar aviso de prueba') + btn('push-off', 'Desactivar', true); }
+  else { msg.textContent = 'Activá los avisos para que te llegue una notificación al celular apenas un cliente haga un pedido.'; bot.innerHTML = btn('push-on', 'Activar avisos en este dispositivo'); }
+}
+async function pushActivar() {
+  if (!PUSH_OK) return;
+  if (await Notification.requestPermission() !== 'granted') { toast('Tenés que permitir las notificaciones.', 'error'); return pintarPush(); }
+  const k = await api('/admin/push/clave', { admin: true });
+  if (!k.ok) { toast(k.error, 'error'); return pintarPush(); }
+  try {
+    const reg = await swPush();
+    const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: aU8(k.datos.clave) });
+    const r = await api('/admin/push', { metodo: 'POST', admin: true, cuerpo: { subscription: sub.toJSON() } });
+    if (!r.ok) { toast(r.error, 'error'); return pintarPush(); }
+    toast('Avisos activados', 'success');
+  } catch (e) { toast('No se pudieron activar los avisos: ' + (e.message || e), 'error'); }
+  pintarPush();
+}
+async function pushDesactivar() {
+  try {
+    const sub = await (await swPush()).pushManager.getSubscription();
+    if (sub) { await api('/admin/push', { metodo: 'DELETE', admin: true, cuerpo: { endpoint: sub.endpoint } }); await sub.unsubscribe(); }
+  } catch (e) {}
+  toast('Avisos desactivados'); pintarPush();
+}
 /* ---------- productos ---------- */
 function admProductos() {
   $('#adm-cont').innerHTML = `<div class="toolbar">
@@ -1812,6 +1875,10 @@ document.addEventListener('click', async e => {
       if (ruta().a === '') { pintarChips(); pintarGrid(); $('#catalogo')?.scrollIntoView({ behavior: 'smooth' }); }
       else location.hash = '#/';
       break;
+    case 'pag': pag = Number(el.dataset.p) || 1; pintarGrid(true); $('#catalogo')?.scrollIntoView({ behavior: 'smooth' }); break;
+    case 'push-on': pushActivar(); break;
+    case 'push-off': pushDesactivar(); break;
+    case 'push-probar': { const r = await api('/admin/push/prueba', { metodo: 'POST', admin: true }); toast(r.ok ? 'Aviso enviado: debería llegarte en unos segundos' : r.error, r.ok ? 'success' : 'error'); break; }
     case 'ir-catalogo': $('#catalogo')?.scrollIntoView({ behavior: 'smooth' }); break;
     case 'vista':
       vista = el.dataset.v; LS.set('vista', vista);
@@ -1949,8 +2016,9 @@ document.addEventListener('input', e => {
 
 document.addEventListener('change', async e => {
   const t = e.target, d = t.dataset || {};
-  if (t.id === 'orden') { filtro.orden = t.value; pintarGrid(); }
-  if (t.id === 'marca') { filtro.marca = t.value; pintarGrid(); }
+  if (t.id === 'por-pag') { porPag = Number(t.value) || 25; LS.set('porpag', porPag); pintarGrid(); }
+  else if (t.id === 'orden') { filtro.orden = t.value; pintarGrid(); }
+  else if (t.id === 'marca') { filtro.marca = t.value; pintarGrid(); }
   else if (t.id === 'adm-f') { adm.pf = t.value; admProdLista(); }
   else if (t.id === 'adm-c') { adm.pc = t.value; admProdLista(); }
   else if (t.id === 'adm-v') { adm.pv = t.value; LS.set('adm_vista', adm.pv); admProdLista(); }
