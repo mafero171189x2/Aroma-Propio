@@ -589,7 +589,7 @@ const API = () => String(API_URL || '').replace(/\/+$/, '');
 const usuario = () => API() ? USER : (CUENTAS.find(c => c.id === SESION) || null);
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 let vista = LS.get('vista', 'compacta');
-const filtro = { q: '', cat: 'todas', orden: 'nuevos' };
+const filtro = { q: '', cat: 'todas', marca: '', orden: 'nuevos' };
 
 function normalizarDatos(x) {
   const s = seed();
@@ -855,7 +855,7 @@ function abrirMenu() {
   const cats = D.categorias.map(c => c.nombre), u = usuario();
   $('#menu-body').innerHTML = `<nav class="menu-l">
     <a href="#/">${ico('bolsa')} Todos los perfumes</a>
-    <button type="button" data-act="cat" data-cat="ofertas">${ico('corazon')} Ofertas</button>
+    ${D.productos.some(p => vendible(p) && enOferta(p)) ? `<button type="button" data-act="cat" data-cat="ofertas">${ico('corazon')} Ofertas</button>` : ''}
     <a href="#/favoritos">${ico('corazon')} Favoritos</a>
     <a href="#/cuenta">${ico('usuario')} ${u ? 'Mi cuenta y pedidos' : 'Ingresar o crear cuenta'}</a>
     <a href="#/contacto">${ico('mail')} Contacto y preguntas</a>
@@ -1078,6 +1078,7 @@ function vistaHome() {
       <div class="chips" id="chips" role="group" aria-label="Categorías"></div>
       <div class="toolbar">
         <label class="busca">${ico('buscar')}<input id="q" type="search" placeholder="Buscar por nombre, marca o nota" value="${esc(filtro.q)}" aria-label="Buscar perfumes"></label>
+        <select id="marca" class="inp" aria-label="Filtrar por marca"></select>
         <select id="orden" class="inp" aria-label="Ordenar por">
           ${[['nuevos', 'Novedades'], ['vendidos', 'Más vendidos'], ['precio-asc', 'Menor precio'], ['precio-desc', 'Mayor precio'], ['az', 'A a Z']].map(([v, t]) => `<option value="${v}" ${filtro.orden === v ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
@@ -1096,12 +1097,29 @@ function vistaHome() {
 function pintarChips() {
   const el = $('#chips'); if (!el) return;
   const chip = (v, t) => `<button type="button" class="chip ${filtro.cat === v ? 'on' : ''}" data-act="cat" data-cat="${esc(v)}" aria-pressed="${filtro.cat === v}">${esc(t)}</button>`;
-  el.innerHTML = chip('todas', 'Todos') + chip('ofertas', 'Ofertas') + D.categorias.map(c => chip(c.nombre, c.nombre)).join('');
+  const hayOf = D.productos.some(p => vendible(p) && enOferta(p));
+  if (!hayOf && filtro.cat === 'ofertas') filtro.cat = 'todas';
+  el.innerHTML = chip('todas', 'Todos') + (hayOf ? chip('ofertas', 'Ofertas') : '') + D.categorias.map(c => chip(c.nombre, c.nombre)).join('');
+  pintarMarcas();
+}
+/* Marcas disponibles dentro de la categoría elegida (para el selector de marca). */
+function enCategoria(l) {
+  return filtro.cat === 'ofertas' ? l.filter(enOferta) : filtro.cat !== 'todas' ? l.filter(p => p.categoria === filtro.cat) : l;
+}
+function pintarMarcas() {
+  const el = $('#marca'); if (!el) return;
+  const cuenta = new Map();
+  enCategoria(D.productos.filter(vendible)).forEach(p => { const m = (p.marca || '').trim(); if (m) cuenta.set(m, (cuenta.get(m) || 0) + 1); });
+  if (filtro.marca && !cuenta.has(filtro.marca)) filtro.marca = '';
+  const ms = [...cuenta.keys()].sort((a, b) => a.localeCompare(b, 'es'));
+  el.style.display = ms.length ? '' : 'none';
+  el.innerHTML = '<option value="">Todas las marcas</option>' + ms.map(m => `<option value="${esc(m)}" ${filtro.marca === m ? 'selected' : ''}>${esc(m)} (${cuenta.get(m)})</option>`).join('');
 }
 function filtrar() {
   let l = D.productos.filter(vendible);
   if (filtro.cat === 'ofertas') l = l.filter(enOferta);
   else if (filtro.cat !== 'todas') l = l.filter(p => p.categoria === filtro.cat);
+  if (filtro.marca) l = l.filter(p => (p.marca || '').trim() === filtro.marca);
   const q = norm(filtro.q).trim();
   if (q) l = l.filter(p => norm([p.nombre, p.marca, p.categoria, p.notas, p.concentracion].join(' ')).includes(q));
   const o = filtro.orden;
@@ -1790,7 +1808,7 @@ document.addEventListener('click', async e => {
     case 'cerrar': cerrar(el.dataset.panel); break;
     case 'cerrar-todo': cerrarPaneles(); break;
     case 'cat':
-      filtro.cat = el.dataset.cat; cerrarPaneles();
+      filtro.cat = el.dataset.cat; filtro.marca = ''; cerrarPaneles();
       if (ruta().a === '') { pintarChips(); pintarGrid(); $('#catalogo')?.scrollIntoView({ behavior: 'smooth' }); }
       else location.hash = '#/';
       break;
@@ -1800,7 +1818,7 @@ document.addEventListener('click', async e => {
       $('#grid').dataset.vista = vista;
       $$('.vtog button').forEach(b => { const on = b.dataset.v === vista; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
       break;
-    case 'limpiar': filtro.q = ''; filtro.cat = 'todas'; vistaHome(); break;
+    case 'limpiar': filtro.q = ''; filtro.cat = 'todas'; filtro.marca = ''; vistaHome(); break;
     case 'fav': {
       const on = toggleFav(id);
       $$(`[data-act="fav"][data-id="${CSS.escape(id)}"]`).forEach(b => {
@@ -1932,6 +1950,7 @@ document.addEventListener('input', e => {
 document.addEventListener('change', async e => {
   const t = e.target, d = t.dataset || {};
   if (t.id === 'orden') { filtro.orden = t.value; pintarGrid(); }
+  if (t.id === 'marca') { filtro.marca = t.value; pintarGrid(); }
   else if (t.id === 'adm-f') { adm.pf = t.value; admProdLista(); }
   else if (t.id === 'adm-c') { adm.pc = t.value; admProdLista(); }
   else if (t.id === 'adm-v') { adm.pv = t.value; LS.set('adm_vista', adm.pv); admProdLista(); }
