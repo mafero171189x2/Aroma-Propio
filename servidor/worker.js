@@ -231,7 +231,7 @@ async function catalogo(env) {
   if (!f) return null;
   try {
     const d = JSON.parse(f.datos);
-    return { mapa: Object.fromEntries((d.productos || []).map((p) => [String(p.id), p])), envios: d.envios || {}, config: d.config || {} };
+    return { mapa: Object.fromEntries((d.productos || []).map((p) => [String(p.id), Number(p.precio) > 0 ? p : { ...p, precio: Number((d.config || {}).precioGeneral) || 0 }])), envios: d.envios || {}, config: d.config || {} };
   } catch (e) {
     return null;
   }
