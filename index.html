@@ -272,6 +272,20 @@ dialog::backdrop{background:var(--velo)}
 .fila-p .th{width:56px;height:56px;border-radius:10px;background:var(--elevado);overflow:hidden;grid-row:span 2}
 .fila-p .th img{width:100%;height:100%;object-fit:contain}
 .fila-p .acc{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+.fila-c{display:grid;grid-template-columns:44px 1fr auto;gap:.3rem .7rem;align-items:center;padding:.5rem .7rem;border:1px solid var(--borde);border-radius:12px;background:var(--superficie);margin-bottom:.4rem}
+.fila-c .th{width:44px;height:44px;border-radius:8px;background:var(--elevado);overflow:hidden;grid-row:span 2}
+.fila-c .th img,.card-a .th img{width:100%;height:100%;object-fit:contain}
+.fila-c .fc-nom{display:flex;flex-direction:column;min-width:0}.fila-c .fc-nom strong,.fila-c .fc-nom span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fila-c .fc-pre{text-align:right}.fila-c .fc-vis{margin:0}
+.fc-bot{display:flex;gap:.4rem}
+@media(min-width:760px){.fila-c{grid-template-columns:44px minmax(0,1fr) 120px 90px auto}.fila-c .th{grid-row:auto}.fila-c .fc-pre{text-align:left}}
+.grid-a{display:grid;gap:.6rem;grid-template-columns:repeat(2,minmax(0,1fr))}
+@media(min-width:640px){.grid-a{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(min-width:1024px){.grid-a{grid-template-columns:repeat(5,minmax(0,1fr))}}
+.card-a{display:flex;flex-direction:column;gap:.25rem;padding:.6rem;border:1px solid var(--borde);border-radius:14px;background:var(--superficie);min-width:0}
+.card-a .th{aspect-ratio:1/1;border-radius:10px;background:var(--elevado);overflow:hidden}
+.card-a strong{font-size:.9rem;line-height:1.2}.card-a .fc-bot{margin-top:auto;padding-top:.3rem}
+.marca-g{margin-bottom:.5rem}.marca-g>summary{cursor:pointer;padding:.55rem .8rem;border:1px solid var(--borde);border-radius:12px;background:var(--elevado);margin-bottom:.4rem;list-style:revert}
 .stk{display:inline-flex;align-items:center;gap:.2rem}
 .stk button{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--borde);background:transparent;cursor:pointer;display:grid;place-items:center}
 .stk input{width:64px;text-align:center;min-height:34px;padding:.2rem}
@@ -1338,7 +1352,7 @@ function vistaContacto() {
 /* ======================================================================
    PANEL DE ADMINISTRACIÓN
    ====================================================================== */
-const adm = { pq: '', pf: 'todos', ped: 'todos', env: null };
+const adm = { pq: '', pf: 'todos', pc: 'todas', pv: LS.get('adm_vista', 'lista'), ped: 'todos', env: null };
 let pfEditId = null, pfImgs = [];
 
 async function hashPass(pw, salt) {
@@ -1423,8 +1437,11 @@ function admResumen() {
 function admProductos() {
   $('#adm-cont').innerHTML = `<div class="toolbar">
     <label class="busca">${ico('buscar')}<input id="adm-q" type="search" placeholder="Buscar producto" value="${esc(adm.pq)}" aria-label="Buscar producto"></label>
-    <select class="inp" id="adm-f" aria-label="Filtrar productos">${[['todos', 'Todos'], ['sinstock', 'Sin stock'], ['bajo', 'Stock bajo'], ['ofertas', 'En oferta'], ['inactivos', 'Ocultos']].map(([v, t]) => `<option value="${v}" ${adm.pf === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
+    <select class="inp" id="adm-f" aria-label="Filtrar productos">${[['todos', 'Todos'], ['sinfoto', 'Sin foto'], ['sinstock', 'Sin stock'], ['bajo', 'Stock bajo'], ['ofertas', 'En oferta'], ['inactivos', 'Ocultos']].map(([v, t]) => `<option value="${v}" ${adm.pf === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
+    <select class="inp" id="adm-c" aria-label="Filtrar por categoría"><option value="todas">Todas las categorías</option>${D.categorias.map(c => `<option value="${esc(c.nombre)}" ${adm.pc === c.nombre ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>
+    <select class="inp" id="adm-v" aria-label="Cambiar la vista">${[['lista', 'Vista: Lista'], ['compacta', 'Vista: Compacta'], ['cuadricula', 'Vista: Cuadrícula'], ['marca', 'Vista: Por marca']].map(([v, t]) => `<option value="${v}" ${adm.pv === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
     <button class="btn" type="button" data-act="p-nuevo">${ico('mas')} Nuevo perfume</button></div>
+    <p class="ayuda" id="adm-cuenta" style="margin:0 0 .6rem"></p>
     <div id="adm-lista"></div>`;
   admProdLista();
 }
@@ -1435,6 +1452,11 @@ function admProdLista() {
   if (f === 'bajo') l = l.filter(p => stockDe(p) > 0 && stockDe(p) <= 3);
   if (f === 'ofertas') l = l.filter(enOferta);
   if (f === 'inactivos') l = l.filter(p => !p.activo);
+  if (f === 'sinfoto') l = l.filter(p => !(p.imagenes && p.imagenes.length));
+  if (adm.pc !== 'todas') l = l.filter(p => p.categoria === adm.pc);
+  const cuenta = $('#adm-cuenta'); if (cuenta) cuenta.textContent = `${l.length} de ${D.productos.length} perfumes`;
+  const vista = adm.pv || 'lista';
+  if (vista !== 'lista') { $('#adm-lista').innerHTML = l.length ? admVistaOtra(l, vista) : `<div class="vacio">${ico('buscar')}<p>No hay productos con ese filtro.</p></div>`; return; }
   $('#adm-lista').innerHTML = l.length ? l.map(p => {
     const st = stockDe(p), id = esc(p.id);
     return `<div class="fila-p">
@@ -1450,6 +1472,36 @@ function admProdLista() {
         <button class="btn peligro chico" type="button" data-act="p-borrar" data-id="${id}" aria-label="Eliminar ${esc(p.nombre)}">${ico('papelera')}</button>
       </div></div>`;
   }).join('') : `<div class="vacio">${ico('buscar')}<p>No hay productos con ese filtro.</p></div>`;
+}
+/* Vistas del listado de productos del panel: compacta, cuadrícula y agrupada por marca. */
+function admPrecioTxt(p) { return `<span class="precio" style="font-size:.95rem">${fmt(precioFinal(p))}</span>${Number(p.precio) > 0 ? '' : ' <span class="ayuda">(general)</span>'}`; }
+function admVistaOtra(l, vista) {
+  const fila = p => {
+    const id = esc(p.id);
+    return `<div class="fila-c"><div class="th">${imgTag(p)}</div>
+      <div class="fc-nom"><strong>${esc(p.nombre)}</strong><span class="suave">${esc([p.marca, p.categoria].filter(Boolean).join(' · '))}</span></div>
+      <div class="fc-pre">${admPrecioTxt(p)}</div>
+      <label class="chk fc-vis"><input type="checkbox" data-activo="${id}" ${p.activo ? 'checked' : ''}> Visible</label>
+      <div class="fc-bot"><button class="btn sec chico" type="button" data-act="p-editar" data-id="${id}">${ico('editar')} Editar</button>
+      <button class="btn peligro chico" type="button" data-act="p-borrar" data-id="${id}" aria-label="Eliminar ${esc(p.nombre)}">${ico('papelera')}</button></div></div>`;
+  };
+  const tarjeta = p => {
+    const id = esc(p.id);
+    return `<div class="card-a"><div class="th">${imgTag(p)}</div>
+      <strong>${esc(p.nombre)}</strong><span class="suave">${esc(p.marca || p.categoria || '')}</span>
+      <div>${admPrecioTxt(p)}</div>
+      <label class="chk" style="margin:0"><input type="checkbox" data-activo="${id}" ${p.activo ? 'checked' : ''}> Visible</label>
+      <div class="fc-bot"><button class="btn sec chico" type="button" data-act="p-editar" data-id="${id}">${ico('editar')} Editar</button>
+      <button class="btn peligro chico" type="button" data-act="p-borrar" data-id="${id}" aria-label="Eliminar ${esc(p.nombre)}">${ico('papelera')}</button></div></div>`;
+  };
+  if (vista === 'compacta') return l.map(fila).join('');
+  if (vista === 'cuadricula') return `<div class="grid-a">${l.map(tarjeta).join('')}</div>`;
+  /* por marca: un desplegable por marca, abiertos si hay una búsqueda activa */
+  const g = new Map();
+  l.forEach(p => { const m = p.marca || 'Sin marca'; if (!g.has(m)) g.set(m, []); g.get(m).push(p); });
+  const abiertas = !!adm.pq || adm.pf !== 'todos' || adm.pc !== 'todas' || g.size <= 3;
+  return [...g.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es')).map(([m, ps]) =>
+    `<details class="marca-g" ${abiertas ? 'open' : ''}><summary><b>${esc(m)}</b> <span class="suave">(${ps.length})</span></summary>${ps.map(fila).join('')}</details>`).join('');
 }
 function setStock(id, valor) {
   const p = prod(id); if (!p) return;
@@ -1881,6 +1933,8 @@ document.addEventListener('change', async e => {
   const t = e.target, d = t.dataset || {};
   if (t.id === 'orden') { filtro.orden = t.value; pintarGrid(); }
   else if (t.id === 'adm-f') { adm.pf = t.value; admProdLista(); }
+  else if (t.id === 'adm-c') { adm.pc = t.value; admProdLista(); }
+  else if (t.id === 'adm-v') { adm.pv = t.value; LS.set('adm_vista', adm.pv); admProdLista(); }
   else if (t.id === 'adm-ped-f') { adm.ped = t.value; admPedidos(); }
   else if (d.stk) { setStock(d.stk, t.value); admProdLista(); }
   else if (d.activo) { const p = prod(d.activo); if (p) { p.activo = t.checked; guardar(); admProdLista(); } }
