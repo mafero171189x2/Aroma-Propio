@@ -210,7 +210,11 @@ async function catalogo(env) {
     const r = await fetch(url, { cf: { cacheTtl: 30, cacheEverything: true } });
     if (r.ok) {
       const j = await r.json();
-      if (j && Array.isArray(j.productos)) mapa = Object.fromEntries(j.productos.map(p => [String(p.id), p]));
+      if (j && Array.isArray(j.productos)) {
+        /* "Vender sin controlar stock": el catálogo no limita las unidades (stock null = ilimitado). */
+        const libre = !!(j.config && j.config.sinControlStock);
+        mapa = Object.fromEntries(j.productos.map(p => [String(p.id), libre || p.stock == null || p.stock === '' ? { ...p, stock: null } : p]));
+      }
     }
   } catch (e) { mapa = null; }
   cacheCat = { t: Date.now(), url, mapa };
@@ -290,7 +294,7 @@ async function crearPedido(req, env, u) {
     const sentencias = [env.DB.prepare('INSERT INTO pedidos (id, numero, usuario_id, estado, datos, total, creado) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)').bind(id, numero, u.id, 'pendiente', datos, total, ahora)];
     for (const i of items) {
       const p = cat && cat[i.id];
-      if (p) {
+      if (p && p.stock != null) {
         sentencias.push(env.DB.prepare(
           "INSERT INTO pedido_items (pedido_id, producto_id, cant) SELECT ?1, ?2, ?3 WHERE COALESCE((SELECT SUM(pi.cant) FROM pedido_items pi JOIN pedidos pe ON pe.id = pi.pedido_id WHERE pi.producto_id = ?2 AND pe.estado != 'cancelado'), 0) + ?3 <= ?4"
         ).bind(id, i.id, i.cant, Math.max(0, Math.floor(Number(p.stock) || 0))));
@@ -308,7 +312,7 @@ async function crearPedido(req, env, u) {
     /* no alcanzó el stock para algún producto: deshago el pedido */
     await env.DB.batch([env.DB.prepare('DELETE FROM pedido_items WHERE pedido_id = ?1').bind(id), env.DB.prepare('DELETE FROM pedidos WHERE id = ?1').bind(id)]);
     const vend = await vendidos(env), faltan = [];
-    for (const i of items) { const p = cat[i.id]; const disp = Math.max(0, Math.floor(Number(p.stock) || 0) - (vend[i.id] || 0)); if (disp < i.cant) faltan.push({ id: i.id, nombre: i.nombre, disponible: disp }); }
+    for (const i of items) { const p = cat[i.id]; if (p.stock == null) continue; const disp = Math.max(0, Math.floor(Number(p.stock) || 0) - (vend[i.id] || 0)); if (disp < i.cant) faltan.push({ id: i.id, nombre: i.nombre, disponible: disp }); }
     const f = faltan[0];
     throw new Fallo(409, f ? `De “${f.nombre}” ${f.disponible > 0 ? 'quedan solo ' + f.disponible : 'no queda stock'}. Actualizamos tu carrito.` : 'No hay stock suficiente. Actualizamos tu carrito.', { codigo: 'stock', faltan });
   }
@@ -352,7 +356,7 @@ async function adminCambiarEstado(req, env, id) {
     if (cat) {
       const vend = await vendidos(env), datos = JSON.parse(fila.datos);
       for (const i of datos.items) {
-        const p = cat[i.id]; if (!p) continue;
+        const p = cat[i.id]; if (!p || p.stock == null) continue;
         if ((vend[i.id] || 0) + i.cant > Math.max(0, Math.floor(Number(p.stock) || 0))) throw new Fallo(409, `No hay stock suficiente de ${i.nombre} para reactivar el pedido.`);
       }
     }
