@@ -9,6 +9,7 @@
 <meta property="og:title" content="Aroma Propio">
 <meta property="og:description" content="Testers de perfumes de 60 ml con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
 <meta property="og:image" content="https://mafero171189x2.github.io/Aroma-Propio/fotos/001.jpg">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='24' y='4' width='16' height='10' rx='3' fill='%230E3B43'/%3E%3Crect x='28' y='14' width='8' height='6' fill='%230F7E7A'/%3E%3Crect x='14' y='20' width='36' height='40' rx='9' fill='%231AA6A1'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#EEF7F6">
 <script>
   /* Aplica el tema guardado antes de pintar, para evitar el parpadeo. */
@@ -143,7 +144,7 @@ body.en-admin .hdr,body.en-admin .foot{display:none}
 .vtog button.on{background:var(--btn-fondo);color:var(--btn-texto)}
 
 /* Grilla y tarjetas */
-.promo-tira{background:#fff4d6;border:1px solid #f2b94b;border-radius:12px;padding:.6rem .8rem;margin:.2rem 0 1.1rem;font-size:.92rem;line-height:1.4}
+.promo-tira{background:#fff4d6;color:#4a3500;border:1px solid #f2b94b;border-radius:12px;padding:.6rem .8rem;margin:.2rem 0 1.1rem;font-size:.92rem;line-height:1.4}
 @media(max-width:639px){.toolbar{display:grid;grid-template-columns:1fr auto;gap:.6rem;margin-bottom:1rem}.busca{grid-column:1/-1;flex:none}.toolbar #marca{grid-column:1/-1}.toolbar select{width:100%;min-width:0}.chips{padding-bottom:1rem}.res-fila{margin-top:.2rem}}
 .res-fila{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
 .por-pag{display:flex;align-items:center;gap:.4rem;margin:0}.por-pag select{width:auto;min-height:36px;padding:.2rem .5rem}
@@ -808,7 +809,14 @@ function botella(p) {
   return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
 }
 const imgDe = (p, i = 0) => (p.imagenes && p.imagenes[i]) || botella(p);
-const imgTag = (p, i = 0) => `<img src="${esc(imgDe(p, i))}" data-fb="${esc(botella(p))}" alt="${esc(p.nombre)}" loading="lazy" referrerpolicy="no-referrer">`;
+/* Miniatura (400 px) para el catálogo y el carrito: pesa ~3 veces menos. Si no existe, cae a la foto grande y después al frasco. */
+const miniUrl = u => typeof u === 'string' ? u.replace(/\/fotos\/(\d+\.jpg)$/, '/fotos/m/$1') : u;
+function imgMini(p) {
+  const o = imgDe(p, 0), m = miniUrl(o);
+  if (m === o) return imgTag(p, 0);
+  return `<img src="${esc(m)}" data-fb="${esc(o)}" data-fb2="${esc(botella(p))}" alt="${esc(p.nombre)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
+}
+const imgTag = (p, i = 0) => `<img src="${esc(imgDe(p, i))}" data-fb="${esc(botella(p))}" alt="${esc(p.nombre)}" loading="lazy" decoding="async" referrerpolicy="no-referrer">`;
 
 /* ---------- carrito ---------- */
 function depurarCarro() {
@@ -908,7 +916,7 @@ function renderCarro() {
     f.innerHTML = ''; return;
   }
   b.innerHTML = ls.map(l => `<div class="lin">
-    <div class="lin-img">${imgTag(l.p)}</div>
+    <div class="lin-img">${imgMini(l.p)}</div>
     <div class="lin-inf"><strong>${esc(l.p.nombre)}</strong><span class="suave">${esc(presentacion(l.p))}</span><span class="precio">${fmt(l.precio)}</span></div>
     <div class="qty"><button type="button" data-act="carro-menos" data-id="${esc(l.p.id)}" aria-label="Quitar una unidad">${ico('menos')}</button><span>${l.cant}</span><button type="button" data-act="carro-mas" data-id="${esc(l.p.id)}" aria-label="Agregar una unidad">${ico('mas')}</button></div>
     <button class="ib chico" type="button" data-act="carro-quitar" data-id="${esc(l.p.id)}" aria-label="Quitar del carrito">${ico('papelera')}</button>
@@ -1157,6 +1165,12 @@ function pintarMarcas() {
   el.style.display = ms.length ? '' : 'none';
   el.innerHTML = '<option value="">Todas las marcas</option>' + ms.map(m => `<option value="${esc(m)}" ${filtro.marca === m ? 'selected' : ''}>${esc(m)} (${cuenta.get(m)})</option>`).join('');
 }
+const _tb = new WeakMap();
+function textoBusqueda(p) {
+  const k = [p.nombre, p.marca, p.categoria, p.notas, p.concentracion, p.descripcion].join(' '), c = _tb.get(p);
+  if (c && c.k === k) return c.t;
+  const t = norm(k); _tb.set(p, { k, t }); return t;
+}
 function filtrar() {
   let l = D.productos.filter(vendible);
   if (filtro.cat === 'ofertas') l = l.filter(enOferta);
@@ -1166,7 +1180,7 @@ function filtrar() {
   if (q) {
     /* Cada palabra tiene que aparecer en nombre, marca, notas o descripción; "fresco" también encuentra "fresca", "dulces" → "dulce", etc. */
     const ps = q.split(/\s+/).map(w => w.length > 4 ? w.replace(/(es|s|a|o)$/, '') : w);
-    l = l.filter(p => { const t = norm([p.nombre, p.marca, p.categoria, p.notas, p.concentracion, p.descripcion].join(' ')); return ps.every(w => t.includes(w)); });
+    l = l.filter(p => { const t = textoBusqueda(p); return ps.every(w => t.includes(w)); });
   }
   const o = filtro.orden;
   l.sort((a, b) => o === 'precio-asc' ? precioFinal(a) - precioFinal(b)
@@ -1204,7 +1218,7 @@ function tarjeta(p) {
   return `<article class="card">
     ${sin ? '<span class="tag tag-sin">Sin stock</span>' : (of ? `<span class="tag tag-of">-${p.porcentajeDescuento}%</span>` : '')}
     <button class="fav ${fav ? 'on' : ''}" type="button" data-act="fav" data-id="${id}" aria-label="${fav ? 'Quitar de favoritos' : 'Agregar a favoritos'}" aria-pressed="${fav}">${ico('corazon')}</button>
-    <div class="pc-img" data-act="abrir" data-id="${id}">${imgTag(p)}</div>
+    <div class="pc-img" data-act="abrir" data-id="${id}">${imgMini(p)}</div>
     <div class="pc-body">
       <div class="pc-marca">${esc(p.marca || '')}</div>
       <h3 class="pc-nombre"><a href="#/producto/${id}">${esc(p.nombre)}</a></h3>
@@ -1414,7 +1428,7 @@ function vistaContacto() {
   document.title = 'Contacto — ' + c.nombreTienda;
   const mapa = c.mapaUrl || (c.direccionContacto ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(c.direccionContacto) : '');
   const items = [
-    c.whatsappNumero ? `<a class="btn" target="_blank" rel="noopener" href="${esc(linkWA(c.whatsappNumero, 'Hola! Quería consultar por un perfume.'))}">${ico('chat')} Escribinos por WhatsApp</a>` : '',
+    c.whatsappNumero ? `<a class="btn" target="_blank" rel="noopener" href="${esc(linkWA(c.whatsappNumero, 'Hola! Quería consultar por un tester.'))}">${ico('chat')} Escribinos por WhatsApp</a>` : '',
     c.emailContacto ? `<p>${ico('mail')} <a href="mailto:${esc(c.emailContacto)}">${esc(c.emailContacto)}</a></p>` : '',
     c.direccionContacto ? `<p>${ico('pin')} ${esc(c.direccionContacto)}${mapa ? ` — <a href="${esc(mapa)}" target="_blank" rel="noopener">ver en el mapa</a>` : ''}</p>` : ''
   ].filter(Boolean);
@@ -1563,21 +1577,21 @@ function admProductos() {
     <select class="inp" id="adm-f" aria-label="Filtrar productos">${[['todos', 'Todos'], ['sinfoto', 'Sin foto'], ['sinstock', 'Sin stock'], ['bajo', 'Stock bajo'], ['ofertas', 'En oferta'], ['inactivos', 'Ocultos']].map(([v, t]) => `<option value="${v}" ${adm.pf === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
     <select class="inp" id="adm-c" aria-label="Filtrar por categoría"><option value="todas">Todas las categorías</option>${D.categorias.map(c => `<option value="${esc(c.nombre)}" ${adm.pc === c.nombre ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>
     <select class="inp" id="adm-v" aria-label="Cambiar la vista">${[['lista', 'Vista: Lista'], ['compacta', 'Vista: Compacta'], ['cuadricula', 'Vista: Cuadrícula'], ['marca', 'Vista: Por marca']].map(([v, t]) => `<option value="${v}" ${adm.pv === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
-    <button class="btn" type="button" data-act="p-nuevo">${ico('mas')} Nuevo perfume</button></div>
+    <button class="btn" type="button" data-act="p-nuevo">${ico('mas')} Nuevo tester</button></div>
     <p class="ayuda" id="adm-cuenta" style="margin:0 0 .6rem"></p>
     <div id="adm-lista"></div>`;
   admProdLista();
 }
 function admProdLista() {
   const q = norm(adm.pq), f = adm.pf;
-  let l = D.productos.filter(p => !q || norm(p.nombre + ' ' + p.marca + ' ' + p.categoria).includes(q));
+  let l = D.productos.filter(p => !q || norm([p.nombre, p.marca, p.categoria, p.notas, p.descripcion].join(' ')).includes(q));
   if (f === 'sinstock') l = l.filter(p => stockDe(p) <= 0);
   if (f === 'bajo') l = l.filter(p => stockDe(p) > 0 && stockDe(p) <= 3);
   if (f === 'ofertas') l = l.filter(enOferta);
   if (f === 'inactivos') l = l.filter(p => !p.activo);
   if (f === 'sinfoto') l = l.filter(p => !(p.imagenes && p.imagenes.length));
   if (adm.pc !== 'todas') l = l.filter(p => p.categoria === adm.pc);
-  const cuenta = $('#adm-cuenta'); if (cuenta) cuenta.textContent = `${l.length} de ${D.productos.length} perfumes`;
+  const cuenta = $('#adm-cuenta'); if (cuenta) cuenta.textContent = `${l.length} de ${D.productos.length} testers`;
   const vista = adm.pv || 'lista';
   if (vista !== 'lista') { $('#adm-lista').innerHTML = l.length ? admVistaOtra(l, vista) : `<div class="vacio">${ico('buscar')}<p>No hay productos con ese filtro.</p></div>`; return; }
   $('#adm-lista').innerHTML = l.length ? l.map(p => {
@@ -1639,7 +1653,7 @@ function formProducto(id) {
   const p = id ? prod(id) : null;
   pfEditId = id || null; pfImgs = p ? [...(p.imagenes || [])] : [];
   const v = (k, d = '') => p ? (p[k] == null ? d : p[k]) : d;
-  $('#dlg-body').innerHTML = `<form id="form-prod"><h2>${p ? 'Editar perfume' : 'Nuevo perfume'}</h2>
+  $('#dlg-body').innerHTML = `<form id="form-prod"><h2>${p ? 'Editar tester' : 'Nuevo tester'}</h2>
     <div class="campo"><label for="pf-nombre">Nombre</label><input class="inp" id="pf-nombre" required maxlength="80" value="${esc(v('nombre'))}"></div>
     <div class="fila2">
       <div class="campo"><label for="pf-marca">Marca</label><input class="inp" id="pf-marca" maxlength="60" value="${esc(v('marca'))}"></div>
@@ -1696,7 +1710,7 @@ function guardarProducto() {
     D.productos.unshift({ id: uid(), ...base, stock: stockEf, vendida: 0, fecha: new Date().toISOString() });
   }
   if (!guardar()) { toast('No se pudo guardar: el almacenamiento del navegador está lleno. Probá con menos fotos o con links de imagen.', 'error'); return; }
-  $('#dlg').close(); toast('Perfume guardado', 'success'); pintarBadges(); admProductos();
+  $('#dlg').close(); toast('Tester guardado', 'success'); pintarBadges(); admProductos();
 }
 
 /* ---------- categorías ---------- */
@@ -1790,7 +1804,7 @@ function admConfig() {
         <span class="ayuda">Se guarda como: <b id="cfg-wa-prev">${esc(c.whatsappNumero) || '—'}</b>. Revisá que sea correcto.</span></div>
       <div class="campo"><label for="cfg-eg">Envío gratis desde ($)</label><input class="inp" id="cfg-eg" inputmode="numeric" data-miles placeholder="80.000" value="${c.envioGratisDesde ? Number(c.envioGratisDesde).toLocaleString('es-AR') : ''}"><span class="ayuda">Dejalo vacío para no ofrecer envío gratis.</span></div>
       <div class="campo"><label for="cfg-alias">Alias o CBU para transferencias</label><input class="inp" id="cfg-alias" value="${esc(c.aliasCbu)}"></div>
-      <label class="chk"><input type="checkbox" id="cfg-sinstock" ${c.sinControlStock ? 'checked' : ''}><span><b>Vender sin controlar stock</b><br><span class="ayuda">Todos los perfumes se pueden comprar siempre y nunca se muestran cantidades. Desactivalo para usar el stock de cada producto.</span></span></label>
+      <label class="chk"><input type="checkbox" id="cfg-sinstock" ${c.sinControlStock ? 'checked' : ''}><span><b>Vender sin controlar stock</b><br><span class="ayuda">Todos los testers se pueden comprar siempre y nunca se muestran cantidades. Desactivalo para usar el stock de cada producto.</span></span></label>
       <label class="chk"><input type="checkbox" id="cfg-retiro" ${c.retiroLocal ? 'checked' : ''}><span><b>Permitir retiro en el local</b><br><span class="ayuda">El cliente elige entre envío o retiro y, si retira, no paga envío.</span></span></label></section>
     <section class="panel"><h2>Contacto</h2>
       <div class="campo"><label for="cfg-mail">Email</label><input class="inp" id="cfg-mail" type="email" value="${esc(c.emailContacto)}"></div>
@@ -1805,10 +1819,10 @@ function admPrecios() {
   const filas = Array.from({ length: 6 }, (_, i) => packs[i] || { cant: '', precio: '' });
   $('#adm-cont').innerHTML = `<form id="form-precios">
     <section class="panel"><h2>Precio general</h2>
-      <div class="campo"><label for="pr-pg">Precio de 1 perfume ($)</label><input class="inp" id="pr-pg" inputmode="numeric" data-miles placeholder="Ej: 17.000" value="${c.precioGeneral ? Number(c.precioGeneral).toLocaleString('es-AR') : ''}"><span class="ayuda">Es el precio de todos los perfumes que no tengan uno propio. Un perfume sin precio y sin precio general no se muestra en la tienda. Si cargás un precio en un perfume, ese manda.</span></div></section>
+      <div class="campo"><label for="pr-pg">Precio de 1 tester ($)</label><input class="inp" id="pr-pg" inputmode="numeric" data-miles placeholder="Ej: 17.000" value="${c.precioGeneral ? Number(c.precioGeneral).toLocaleString('es-AR') : ''}"><span class="ayuda">Es el precio de todos los testers que no tengan uno propio. Un tester sin precio y sin precio general no se muestra en la tienda. Si cargás un precio en un tester, ese manda.</span></div></section>
     <section class="panel"><h2>Promos por cantidad</h2>
-      <p class="ayuda" style="margin-bottom:.6rem">Si el cliente lleva esa cantidad de perfumes, el precio de promo se aplica solo en el carrito. Con otras cantidades se arma la mejor combinación (por ejemplo, 13 = 10 + 3). No aplica a perfumes con precio propio o con oferta. Dejá filas vacías si no las necesitás.</p>
-      ${filas.map((f, i) => `<div class="zona"><input class="inp" inputmode="numeric" data-pc="${i}" placeholder="Cantidad" aria-label="Cantidad de perfumes" value="${f.cant}"><input class="inp" inputmode="numeric" data-miles data-pp="${i}" placeholder="Precio total ($)" aria-label="Precio total de la promo" value="${f.precio ? Number(f.precio).toLocaleString('es-AR') : ''}"></div>`).join('')}
+      <p class="ayuda" style="margin-bottom:.6rem">Si el cliente lleva esa cantidad de testers, el precio de promo se aplica solo en el carrito. Con otras cantidades se arma la mejor combinación (por ejemplo, 13 = 10 + 3). No aplica a testers con precio propio o con oferta. Dejá filas vacías si no las necesitás.</p>
+      ${filas.map((f, i) => `<div class="zona"><input class="inp" inputmode="numeric" data-pc="${i}" placeholder="Cantidad" aria-label="Cantidad de testers" value="${f.cant}"><input class="inp" inputmode="numeric" data-miles data-pp="${i}" placeholder="Precio total ($)" aria-label="Precio total de la promo" value="${f.precio ? Number(f.precio).toLocaleString('es-AR') : ''}"></div>`).join('')}
     </section>
     <button class="btn" type="submit">Guardar precios</button></form>`;
 }
@@ -1841,12 +1855,18 @@ async function importarArchivo(file) {
   try {
     const j = JSON.parse(await file.text());
     if (!j || !Array.isArray(j.productos)) throw new Error('el archivo no tiene productos');
+    /* Red de seguridad: un archivo parcial (productos sin nombre) sin "sumar":true borraría todo el catálogo. */
+    if (j.sumar !== true) {
+      const sinNombre = j.productos.filter(p => !p || !p.nombre).length;
+      if (sinNombre) throw new Error(`${sinNombre} producto(s) no tienen nombre: parece un archivo para sumar, no un respaldo completo. No se importó nada.`);
+      if (!await confirmar('¿Reemplazar todo el catálogo?', `Este archivo trae ${j.productos.length} productos y va a reemplazar los ${D.productos.length} actuales.`, 'Reemplazar')) return;
+    }
     if (j.sumar === true) {
       /* Catálogo para sumar: agrega categorías y productos nuevos (o actualiza los del mismo id) sin tocar nada más. */
       (j.categorias || []).forEach(c => { if (c && c.nombre && !D.categorias.some(x => norm(x.nombre) === norm(c.nombre))) D.categorias.push({ id: c.id || uid(), nombre: c.nombre }); });
       j.productos.forEach(np => { const i = D.productos.findIndex(x => x.id === np.id); if (i >= 0) D.productos[i] = { ...D.productos[i], ...np }; else D.productos.push(np); });
       if (!guardar()) throw new Error('no hay espacio en el navegador');
-      pintarBadges(); toast(`Se sumaron ${j.productos.length} perfumes`, 'success'); admDatos(); return;
+      pintarBadges(); toast(`Se sumaron ${j.productos.length} testers`, 'success'); admDatos(); return;
     }
     D = normalizarDatos({ ...j, config: j.config || D.config, envios: j.envios || D.envios });
     if (!API()) { VEND = {}; LS.set('vendidos', VEND); }
@@ -1872,12 +1892,26 @@ function pintarVista() {
   else if (r.a === 'admin') vistaAdmin(r.b);
   else vistaHome();
 }
+/* Al volver del detalle de un tester al catálogo, se vuelve a la misma página y posición. */
+let aPrev = null, homeY = 0, homePag = 1;
 function router() {
   const r = ruta();
+  if (aPrev === '') { homeY = window.scrollY; homePag = pag; }
+  const volver = r.a === '' && aPrev === 'producto' && homeY > 0;
   if (r.a === 'cuenta') misCargado = false;
   if (r.a === 'admin' && ['', 'resumen', 'pedidos'].includes(r.b)) admCargado = false;
-  cerrarPaneles(); pintarVista(); window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  cerrarPaneles(); pintarVista();
+  if (volver) { pag = homePag; pintarGrid(true); window.scrollTo({ top: homeY, left: 0, behavior: 'instant' }); }
+  else window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  aPrev = r.a;
   if (abrirCOtrasRuta) { abrirCOtrasRuta = false; abrirCheckout(); }
+}
+/* Repinta en segundo plano sin mover al cliente de lugar. */
+function repintar() {
+  const y = window.scrollY, pg = pag;
+  pintarVista();
+  if (ruta().a === '') { pag = pg; pintarGrid(true); }
+  window.scrollTo({ top: y, left: 0, behavior: 'instant' });
 }
 
 function aplicarMarca() {
@@ -1927,7 +1961,7 @@ document.addEventListener('click', async e => {
     case 'cerrar': cerrar(el.dataset.panel); break;
     case 'cerrar-todo': cerrarPaneles(); break;
     case 'cat':
-      filtro.cat = el.dataset.cat; filtro.marca = ''; cerrarPaneles();
+      filtro.cat = el.dataset.cat; filtro.marca = ''; cerrarPaneles(); homeY = 0;
       if (ruta().a === '') { pintarChips(); pintarGrid(); $('#catalogo')?.scrollIntoView({ behavior: 'smooth' }); }
       else location.hash = '#/';
       break;
@@ -1974,7 +2008,7 @@ document.addEventListener('click', async e => {
       const u = usuario(); if (!u) break;
       const pd = API() ? MIS.find(p => p.id === id) : PEDIDOS.find(p => p.id === id && p.clienteId === u.id);
       if (!pd) break;
-      if (await confirmar('¿Cancelar el pedido?', 'El stock de los perfumes vuelve a estar disponible.', 'Cancelar pedido')) {
+      if (await confirmar('¿Cancelar el pedido?', 'El stock de los testers vuelve a estar disponible.', 'Cancelar pedido')) {
         if (API()) {
           const r = await api('/pedidos/' + encodeURIComponent(id) + '/cancelar', { metodo: 'POST' });
           if (r.ok) { MIS = MIS.map(p => p.id === id ? r.datos.pedido : p); await refrescarStock(); toast('Pedido cancelado', 'success'); } else toast(r.error, 'error');
@@ -1993,8 +2027,8 @@ document.addEventListener('click', async e => {
     case 'p-editar': formProducto(id); break;
     case 'p-borrar': {
       const p = prod(id); if (!p) break;
-      if (await confirmar('¿Eliminar este perfume?', `“${p.nombre}” se borra del catálogo. Esto no se puede deshacer.`, 'Eliminar')) {
-        D.productos = D.productos.filter(x => x.id !== id); guardar(); pintarBadges(); admProdLista(); toast('Perfume eliminado', 'success');
+      if (await confirmar('¿Eliminar este tester?', `“${p.nombre}” se borra del catálogo. Esto no se puede deshacer.`, 'Eliminar')) {
+        D.productos = D.productos.filter(x => x.id !== id); guardar(); pintarBadges(); admProdLista(); toast('Tester eliminado', 'success');
       }
       break;
     }
@@ -2104,7 +2138,7 @@ document.addEventListener('change', async e => {
   else if (t.id === 'pf-oferta') $('#pf-pct-w').hidden = !t.checked;
   else if (t.id === 'pf-file') {
     for (const f of [...t.files]) {
-      if (pfImgs.length >= 6) { toast('Máximo 6 fotos por perfume', 'error'); break; }
+      if (pfImgs.length >= 6) { toast('Máximo 6 fotos por tester', 'error'); break; }
       try { pfImgs.push(await comprimir(f)); } catch (err) { toast(err.message, 'error'); }
     }
     t.value = ''; renderPfImgs();
@@ -2207,9 +2241,11 @@ document.addEventListener('submit', async e => {
 /* ---------- varios ---------- */
 document.addEventListener('error', e => {
   const t = e.target;
-  if (t && t.tagName === 'IMG' && t.dataset.fb) { const f = t.dataset.fb; delete t.dataset.fb; t.src = f; }
+  if (t && t.tagName === 'IMG' && t.dataset.fb) { const f = t.dataset.fb; if (t.dataset.fb2) { t.dataset.fb = t.dataset.fb2; delete t.dataset.fb2; } else delete t.dataset.fb; t.src = f; }
 }, true);
 document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarPaneles(); });
+/* El logo siempre lleva al inicio del catálogo, arriba de todo. */
+$('#logo').addEventListener('click', () => { homeY = 0; if (ruta().a === '') window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); });
 $('#dlg').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
 
 /* ---------- arranque ---------- */
@@ -2221,28 +2257,29 @@ async function init() {
     if (API()) {
       VEND = LS.get('vend_srv', {});
       sync = Promise.all([restaurarSesion(), refrescarStock()]).then(() => { sincronizado = true; });
-      await Promise.race([sync, new Promise(r => setTimeout(r, 4000))]);
+      /* Con copia guardada del catálogo no hace falta esperar al servidor para mostrar la tienda. */
+      await Promise.race([sync, new Promise(r => setTimeout(r, revalidar ? 0 : 4000))]);
     }
     aplicarTema(LS.get('tema', 'claro') === 'noche' ? 'noche' : 'claro');
     $('#anio').textContent = new Date().getFullYear();
     aplicarMarca(); pintarBadges(); renderCarro();
     window.addEventListener('hashchange', router);
-    pintarVista();
+    pintarVista(); aPrev = ruta().a;
     if (revalidar) refrescarCatalogo().then(cambio => {
       if (!cambio) return;
       pintarBadges(); depurarCarro(); renderCarro();
-      if (ruta().a !== 'admin' && !$('#co.abierto') && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement && document.activeElement.tagName) || '')) pintarVista();
+      if (ruta().a !== 'admin' && !$('#co.abierto') && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement && document.activeElement.tagName) || '')) repintar();
     });
     if (sync && !sincronizado) sync.then(() => {
       pintarBadges(); renderCarro();
-      if (!/INPUT|TEXTAREA|SELECT/.test((document.activeElement && document.activeElement.tagName) || '')) pintarVista();
+      if (!(D.config && D.config.sinControlStock) && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement && document.activeElement.tagName) || '')) repintar();
     });
     document.addEventListener('visibilitychange', async () => {
       if (document.hidden || !API()) return;
       const cambio = await refrescarTodo();
       pintarBadges(); depurarCarro(); renderCarro();
       const foco = (document.activeElement && document.activeElement.tagName) || '';
-      if (cambio && ruta().a !== 'admin' && !$('#co.abierto') && !/INPUT|TEXTAREA|SELECT/.test(foco)) pintarVista();
+      if (cambio && ruta().a !== 'admin' && !$('#co.abierto') && !/INPUT|TEXTAREA|SELECT/.test(foco)) repintar();
     });
     window.addEventListener('pagehide', () => { if (sucio) LS.set('borrador', { version: VERSION, datos: D }); });
   } catch (err) {
