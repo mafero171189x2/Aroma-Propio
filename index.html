@@ -214,6 +214,9 @@ body.en-admin .hdr,body.en-admin .foot{display:none}
 .menu-l a:hover,.menu-l button:hover{background:var(--elevado)}
 .menu-sep{font-size:.85rem;color:var(--suave);font-weight:700;margin:1rem .6rem .3rem}
 .lin{display:grid;grid-template-columns:64px 1fr auto auto;gap:.7rem;align-items:center;padding:.7rem 0;border-bottom:1px solid var(--borde)}
+.sx{display:inline-block;min-width:1.4em;padding:0 .35em;margin-left:.25em;border-radius:6px;background:var(--agua-claro);color:var(--agua-osc);font-size:.75rem;font-weight:800;text-align:center;vertical-align:middle}
+.ayuda a.aca{display:inline-block;padding:.05em .55em;border-radius:999px;background:var(--coral);color:#fff;font-weight:800;text-decoration:none;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.ayuda a.aca:hover{filter:brightness(1.1)}
 .lin-img{width:64px;height:64px;border-radius:12px;background:var(--elevado);overflow:hidden}
 .lin-img img{width:100%;height:100%;object-fit:contain}
 .lin-inf{display:grid;min-width:0}
@@ -799,7 +802,8 @@ const stockLibre = p => !!(D.config && D.config.sinControlStock) || p.stock == n
 const stockVenta = p => stockLibre(p) ? 99 : stockDe(p);
 const disponible = p => vendible(p) && stockVenta(p) > 0;
 const presentacion = p => [p.ml ? p.ml + ' ml' : '', p.concentracion].filter(Boolean).join(', ');
-const nombreLargo = p => p.nombre + (p.ml && !/\bml\b/i.test(p.nombre) ? ' ' + p.ml + ' ml' : '');
+const sexo = p => ({ Hombre: 'M', Mujer: 'F' })[p && p.categoria] || '';
+const nombreLargo = p => p.nombre + (p.ml && !/\bml\b/i.test(p.nombre) ? ' ' + p.ml + ' ml' : '') + (sexo(p) ? ' (' + sexo(p) + ')' : '');
 
 const PALETAS = [['#BDE8E4', '#5CC2BC'], ['#FBE7B5', '#F2B94B'], ['#D5E4FA', '#7FA8E8'], ['#E9D9F5', '#B58BDD'], ['#FAD4CB', '#EE8B77'], ['#D7F0C9', '#84C46B']];
 function hash(s) { let h = 0; for (const c of String(s)) h = (h * 31 + c.charCodeAt(0)) | 0; return Math.abs(h); }
@@ -917,7 +921,7 @@ function renderCarro() {
   }
   b.innerHTML = ls.map(l => `<div class="lin">
     <div class="lin-img">${imgMini(l.p)}</div>
-    <div class="lin-inf"><strong>${esc(l.p.nombre)}</strong><span class="suave">${esc(presentacion(l.p))}</span><span class="precio">${fmt(l.precio)}</span></div>
+    <div class="lin-inf"><strong>${esc(l.p.nombre)}${sexo(l.p) ? ` <span class="sx">${sexo(l.p)}</span>` : ''}</strong><span class="suave">${esc(presentacion(l.p))}</span><span class="precio">${fmt(l.precio)}</span></div>
     <div class="qty"><button type="button" data-act="carro-menos" data-id="${esc(l.p.id)}" aria-label="Quitar una unidad">${ico('menos')}</button><span>${l.cant}</span><button type="button" data-act="carro-mas" data-id="${esc(l.p.id)}" aria-label="Agregar una unidad">${ico('mas')}</button></div>
     <button class="ib chico" type="button" data-act="carro-quitar" data-id="${esc(l.p.id)}" aria-label="Quitar del carrito">${ico('papelera')}</button>
   </div>`).join('');
@@ -968,7 +972,7 @@ function renderCheckout() {
       </div>
       <div class="campo"><label for="c-prov">Provincia</label><select class="inp" id="c-prov" required><option value="">Elegí tu provincia</option>${PROVINCIAS.map(p => `<option ${c.provincia === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
       <div class="campo"><label for="c-dir">¿En qué sucursal de Correo Argentino retirás? (nombre y dirección)</label><input class="inp" id="c-dir" required maxlength="95" value="${esc((c.direccion || '').startsWith('Sucursal: ') ? c.direccion.slice(10) : '')}">
-        <p class="ayuda">Si no sabés cuál te queda cerca, buscala <a href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" rel="noopener">acá</a>. Si querés, mandanos por WhatsApp una captura de la que elijas, así no vuelve el paquete.</p></div>
+        <p class="ayuda">Si no sabés cuál te queda cerca, buscala <a class="aca" href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" rel="noopener">ACÁ</a>. Si querés, mandanos por WhatsApp una captura de la que elijas, así no vuelve el paquete.</p></div>
     </div>
     <div class="caja" id="co-retiro" hidden><strong>Retirás en el local</strong><p id="co-retiro-dir" class="suave"></p></div>
     <div class="campo"><label for="c-notas">Notas del pedido (opcional)</label><textarea class="inp" id="c-notas" rows="2"></textarea></div>
@@ -996,7 +1000,7 @@ function totalesCheckout() {
   else { env = calcEnvio($('#c-prov')?.value || '', arts, sub); if (env.ok) det = env.zona.nombre; }
   const aviso = $('#co-aviso');
   aviso.hidden = env.ok; if (!env.ok) aviso.textContent = env.motivo;
-  $('#co-res').innerHTML = `${lineas().map(l => `<div class="fila-t"><span>${l.cant} × ${esc(l.p.nombre)}</span><span>${fmt(l.precio * l.cant)}</span></div>`).join('')}
+  $('#co-res').innerHTML = `${lineas().map(l => `<div class="fila-t"><span>${l.cant} × ${esc(l.p.nombre)}${sexo(l.p) ? ' (' + sexo(l.p) + ')' : ''}</span><span>${fmt(l.precio * l.cant)}</span></div>`).join('')}
     ${descPromo().desc > 0 ? `<div class="fila-t"><span>Promo por cantidad</span><span>-${fmt(descPromo().desc)}</span></div>` : ''}
     <div class="fila-t"><span>Subtotal</span><span>${fmt(sub)}</span></div>
     <div class="fila-t"><span>Envío ${det ? '(' + esc(det) + ')' : ''}</span><span>${!env.ok ? '—' : (env.costo === 0 ? (r ? 'Sin cargo' : '¡Gratis!') : fmt(env.costo))}</span></div>
