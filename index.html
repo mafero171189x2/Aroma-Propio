@@ -627,9 +627,15 @@ function absolutizar(d) {
   if (d.config) d.config.bannerUrl = absImg(d.config.bannerUrl || '');
   return d;
 }
+let revalidar = false;
 async function cargarDatos() {
   let fallo = false;
   if (API()) {
+    /* Carga instantánea: si ya hay una copia guardada del catálogo la usamos al toque y la actualizamos en segundo plano. */
+    const cc = LS.get('tienda_cache', null);
+    if (!SS.get('admtoken') && !LS.get('borrador', null) && cc && cc.datos && Array.isArray(cc.datos.productos) && cc.datos.productos.length) {
+      VERSION = cc.version; D = normalizarDatos(absolutizar(cc.datos)); revalidar = true; return;
+    }
     const r = await api('/tienda', { publico: true });
     fallo = !r.ok;
     if (r.ok && r.datos.datos && Array.isArray(r.datos.datos.productos)) {
@@ -2215,6 +2221,11 @@ async function init() {
     aplicarMarca(); pintarBadges(); renderCarro();
     window.addEventListener('hashchange', router);
     pintarVista();
+    if (revalidar) refrescarCatalogo().then(cambio => {
+      if (!cambio) return;
+      pintarBadges(); depurarCarro(); renderCarro();
+      if (ruta().a !== 'admin' && !$('#co.abierto') && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement && document.activeElement.tagName) || '')) pintarVista();
+    });
     if (sync && !sincronizado) sync.then(() => {
       pintarBadges(); renderCarro();
       if (!/INPUT|TEXTAREA|SELECT/.test((document.activeElement && document.activeElement.tagName) || '')) pintarVista();
