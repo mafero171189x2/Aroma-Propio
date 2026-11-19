@@ -1163,7 +1163,11 @@ function filtrar() {
   else if (filtro.cat !== 'todas') l = l.filter(p => p.categoria === filtro.cat);
   if (filtro.marca) l = l.filter(p => (p.marca || '').trim() === filtro.marca);
   const q = norm(filtro.q).trim();
-  if (q) l = l.filter(p => norm([p.nombre, p.marca, p.categoria, p.notas, p.concentracion].join(' ')).includes(q));
+  if (q) {
+    /* Cada palabra tiene que aparecer en nombre, marca, notas o descripción; "fresco" también encuentra "fresca", "dulces" → "dulce", etc. */
+    const ps = q.split(/\s+/).map(w => w.length > 4 ? w.replace(/(es|s|a|o)$/, '') : w);
+    l = l.filter(p => { const t = norm([p.nombre, p.marca, p.categoria, p.notas, p.concentracion, p.descripcion].join(' ')); return ps.every(w => t.includes(w)); });
+  }
   const o = filtro.orden;
   l.sort((a, b) => o === 'precio-asc' ? precioFinal(a) - precioFinal(b)
     : o === 'precio-desc' ? precioFinal(b) - precioFinal(a)
