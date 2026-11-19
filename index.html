@@ -146,7 +146,12 @@ body.en-admin .hdr,body.en-admin .foot{display:none}
 .vtog button.on{background:var(--btn-fondo);color:var(--btn-texto)}
 
 /* Grilla y tarjetas */
-.promo-tira{background:#fff4d6;color:#4a3500;border:1px solid #f2b94b;border-radius:12px;padding:.6rem .8rem;margin:.2rem 0 1.1rem;font-size:.92rem;line-height:1.4}
+.promos{background:var(--superficie);border:1.5px solid var(--agua);border-radius:16px;padding:.8rem 1rem;margin:.2rem 0 1.1rem}
+.promos-t{margin:0 0 .3rem;font-size:.75rem;letter-spacing:.1em;font-weight:700;color:var(--agua-osc)}
+.promo-f{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--borde)}
+.promo-f span{font-weight:700;color:var(--tinta)}
+.promo-f b{font-size:1.1rem;color:var(--agua-osc);font-weight:800}
+.promos-p{margin:.5rem 0 0;font-size:.8rem;color:var(--suave)}
 @media(max-width:639px){.toolbar{display:grid;grid-template-columns:1fr 1fr auto;gap:.45rem;margin-bottom:.7rem}.busca{grid-column:1/-1;flex:none;min-height:40px}.busca input{padding:.35rem 0;font-size:.95rem}.toolbar select{width:100%;min-width:0;min-height:40px;padding:.3rem 1.6rem .3rem .7rem;font-size:.9rem;text-overflow:ellipsis}.vtog button{width:38px;height:38px}.chips{padding-bottom:.6rem}.res-fila{margin-top:0;margin-bottom:.4rem;flex-wrap:nowrap}.pp-t{display:none}.por-pag select{min-height:32px}}
 .res-fila{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
 .por-pag{display:flex;align-items:center;gap:.4rem;margin:0}.por-pag select{width:auto;min-height:36px;padding:.2rem .5rem}
@@ -1132,7 +1137,7 @@ function vistaHome() {
       ${foto ? '' : heroArte()}
     </section>
     <section id="catalogo" aria-label="Catálogo">
-      ${textoPromos() ? `<p class="promo-tira"><b>Promos:</b> llevando ${esc(textoPromos())}. Se aplican solas en el carrito.</p>` : ''}
+      ${packsPromo().length ? `<div class="promos"><p class="promos-t">PROMOS</p>${packsPromo().sort((a, b) => a.cant - b.cant).map(x => `<div class="promo-f"><span>LLEVA ${x.cant}u x</span><b>${fmt(x.precio)}</b></div>`).join('')}<p class="promos-p">Se aplican solas en el carrito</p></div>` : ''}
       <div class="chips" id="chips" role="group" aria-label="Categorías"></div>
       <div class="toolbar">
         <label class="busca">${ico('buscar')}<input id="q" type="search" placeholder="Buscar tester, marca o nota" value="${esc(filtro.q)}" aria-label="Buscar testers"></label>
