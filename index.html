@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Aroma Propio</title>
 <meta name="description" content="Perfumes con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Aroma Propio">
+<meta property="og:description" content="Perfumes con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
+<meta property="og:image" content="https://mafero171189x2.github.io/Aroma-Propio/fotos/001.jpg">
 <meta name="theme-color" content="#EEF7F6">
 <script>
   /* Aplica el tema guardado antes de pintar, para evitar el parpadeo. */
@@ -77,7 +81,8 @@ textarea.inp{resize:vertical}
 /* Encabezado */
 .hdr{position:sticky;top:0;z-index:50;background:var(--header);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--borde);padding-top:env(safe-area-inset-top,0)}
 .hdr-in{display:flex;align-items:center;gap:.2rem;height:58px}
-.logo{font-family:'Fraunces',Georgia,serif;font-size:1.4rem;font-weight:700;text-decoration:none;letter-spacing:-.01em;margin-left:.2rem}
+.logo{font-family:'Fraunces',Georgia,serif;font-size:1.4rem;font-weight:700;text-decoration:none;letter-spacing:-.01em;margin-left:.2rem;white-space:nowrap}
+@media(max-width:420px){.logo{font-size:1.15rem}}
 .ib{position:relative;width:42px;height:42px;display:grid;place-items:center;border-radius:50%;border:0;background:transparent;cursor:pointer;color:var(--tinta);text-decoration:none}
 .ib:hover{background:var(--elevado)}
 .ib.chico{width:34px;height:34px}
@@ -1858,7 +1863,7 @@ function router() {
   const r = ruta();
   if (r.a === 'cuenta') misCargado = false;
   if (r.a === 'admin' && ['', 'resumen', 'pedidos'].includes(r.b)) admCargado = false;
-  cerrarPaneles(); pintarVista(); window.scrollTo(0, 0);
+  cerrarPaneles(); pintarVista(); window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   if (abrirCOtrasRuta) { abrirCOtrasRuta = false; abrirCheckout(); }
 }
 
