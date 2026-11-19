@@ -981,7 +981,7 @@ function renderCheckout() {
       <div class="campo"><label for="c-dir">¿En qué sucursal de Correo Argentino retirás? (nombre y dirección)</label><input class="inp" id="c-dir" required maxlength="95" value="${esc((c.direccion || '').startsWith('Sucursal: ') ? c.direccion.slice(10) : '')}">
         <p class="ayuda">Si no sabés cuál te queda cerca, buscala <a class="aca" href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" rel="noopener">ACÁ</a>. Si querés, mandanos por WhatsApp una captura de la que elijas, así no vuelve el paquete.</p></div>
     </div>
-    <div class="caja" id="co-retiro" hidden><strong>Retirás en el local</strong><p id="co-retiro-dir" class="suave"></p><a id="co-retiro-mapa" class="btn sec chico" target="_blank" rel="noopener" hidden style="margin:.2rem 0 .6rem">${ico('pin')} Cómo llegar</a><p class="ayuda" style="margin:0">Podés pagar en efectivo o con transferencia en el momento del retiro.</p></div>
+    <div class="caja" id="co-retiro" hidden><strong>Retirás en el local</strong><p id="co-retiro-dir" class="suave"></p><a id="co-retiro-mapa" class="btn sec chico" target="_blank" rel="noopener" hidden style="margin:.2rem 0 .6rem">${ico('pin')} Cómo llegar</a><p class="ayuda" style="margin:0">Pagás con transferencia antes de retirar. Al finalizar te mostramos el alias o CBU.</p></div>
     <div class="campo"><label for="c-notas">Notas del pedido (opcional)</label><textarea class="inp" id="c-notas" rows="2"></textarea></div>
     <div class="caja" id="co-res"></div>
     <div class="aviso err" id="co-aviso" hidden></div>
@@ -1028,7 +1028,7 @@ function armarMensaje(p) {
   if (p.clienteEmail) L.push(`Email: ${p.clienteEmail}`);
   if (!p.esRetiro) L.push('', '*ENVÍO A SUCURSAL*', `Provincia: ${c.provincia}`, `Localidad: ${c.ciudad}`, `Código postal: ${c.codigoPostal}`, `Sucursal de Correo Argentino: ${(c.direccion || '').replace(/^sucursal:\s*/i, '')}`);
   if (p.notas) L.push('', `Notas: ${p.notas}`);
-  L.push('', p.esRetiro ? 'Retiro en el local y pago en el momento (efectivo o transferencia).' : 'Te paso el comprobante de la transferencia por acá.');
+  L.push('', 'Te paso el comprobante de la transferencia por acá.');
   return L.join('\n');
 }
 
@@ -1038,10 +1038,10 @@ function pantallaExito(pedido) {
   $('#co-body').innerHTML = `<div class="cent">
     <div class="ok-ico">${ico('check')}</div>
     <h2>Pedido ${esc(pedido.numero)}</h2>
-    <p class="suave" style="margin:.6rem 0 1rem">${retiro ? 'Tocá el botón para enviarnos tu pedido por WhatsApp. Ahí coordinamos el día y horario para que pases a retirarlo. Podés pagar en efectivo o con transferencia en el momento del retiro.' : 'Tocá el botón para enviarnos tu pedido por WhatsApp junto con el comprobante de la transferencia.'}</p>
+    <p class="suave" style="margin:.6rem 0 1rem">${retiro ? 'Tocá el botón para enviarnos tu pedido por WhatsApp. Ahí coordinamos el día y horario para que pases a retirarlo. Enviá junto el comprobante de la transferencia.' :'Tocá el botón para enviarnos tu pedido por WhatsApp junto con el comprobante de la transferencia.'}</p>
     ${retiro && urlMapa() ? `<a class="btn sec" style="margin-bottom:1rem" target="_blank" rel="noopener" href="${esc(urlMapa())}">${ico('pin')} Cómo llegar</a>` : ''}
-    ${D.config.aliasCbu ? `<p class="lbl">${retiro ? 'Si preferís transferir antes, alias o CBU' : 'Alias o CBU para transferir'}</p><div class="alias"><span id="alias-val">${esc(D.config.aliasCbu)}</span><button class="btn sec chico" type="button" data-act="copiar" data-txt="${esc(D.config.aliasCbu)}">${ico('copiar')} Copiar</button></div>` : ''}
-    <p class="lbl" style="margin-top:1rem">${retiro ? 'Total a pagar' : 'Total a transferir'}</p><p class="precio" style="font-size:1.6rem">${fmt(pedido.total)}</p>
+    ${D.config.aliasCbu ? `<p class="lbl">Alias o CBU para transferir</p><div class="alias"><span id="alias-val">${esc(D.config.aliasCbu)}</span><button class="btn sec chico" type="button" data-act="copiar" data-txt="${esc(D.config.aliasCbu)}">${ico('copiar')} Copiar</button></div>` : ''}
+    <p class="lbl" style="margin-top:1rem">Total a transferir</p><p class="precio" style="font-size:1.6rem">${fmt(pedido.total)}</p>
     <a class="btn block" style="margin-top:1rem" target="_blank" rel="noopener" href="${esc(linkWA(D.config.whatsappNumero, pedido.mensajeWhatsapp))}">${ico('chat')} Enviar pedido por WhatsApp</a>
     ${D.config.whatsappNumero ? '' : '<p class="ayuda" style="margin-top:.5rem">Todavía no hay un número de WhatsApp cargado: al abrir WhatsApp vas a tener que elegir el contacto.</p>'}
     <button class="btn sec block" style="margin-top:.6rem" type="button" data-act="cerrar" data-panel="#co">Seguir comprando</button>
