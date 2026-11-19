@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Aroma Propio</title>
-<meta name="description" content="Perfumes con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
+<meta name="description" content="Testers de perfumes de 60 ml con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Aroma Propio">
-<meta property="og:description" content="Perfumes con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
+<meta property="og:description" content="Testers de perfumes de 60 ml con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
 <meta property="og:image" content="https://mafero171189x2.github.io/Aroma-Propio/fotos/001.jpg">
 <meta name="theme-color" content="#EEF7F6">
 <script>
@@ -355,7 +355,7 @@ html[data-tema="noche"] .bajo{color:var(--sol)}
       <circle class="pl-m pl-m4" cx="94" cy="17" r="4" fill="var(--agua)"/>
     </svg>
     <div class="nombre" id="carga-nombre">Aroma Propio</div>
-    <div class="pl-txt">Cargando perfumes<span class="pl-pts" aria-hidden="true"><i></i><i></i><i></i></span></div>
+    <div class="pl-txt">Cargando testers<span class="pl-pts" aria-hidden="true"><i></i><i></i><i></i></span></div>
   </div>
 </div>
 
@@ -829,15 +829,15 @@ function guardarCarro() { LS.set('carrito', CARRITO); pintarBadges(); }
 
 function agregar(id, cant = 1) {
   const p = prod(id);
-  if (!p || !vendible(p)) { toast('Este perfume ya no está disponible', 'error'); return false; }
+  if (!p || !vendible(p)) { toast('Este tester ya no está disponible', 'error'); return false; }
   const disp = stockVenta(p);
-  if (disp <= 0) { toast('Este perfume no tiene stock', 'error'); return false; }
+  if (disp <= 0) { toast('Este tester no tiene stock', 'error'); return false; }
   const it = CARRITO.find(i => i.id === id);
   const actual = it ? it.cant : 0;
   if (actual >= disp) { toast('Ya tenés todas las unidades disponibles en el carrito', 'error'); return false; }
   const suma = Math.min(cant, disp - actual);
   if (it) it.cant += suma; else CARRITO.push({ id, cant: suma });
-  if (suma < cant) toast('No hay más unidades disponibles de este perfume', 'error');
+  if (suma < cant) toast('No hay más unidades disponibles de este tester', 'error');
   guardarCarro();
   renderCarro();
   return true;
@@ -847,7 +847,7 @@ function cambiarCant(id, d) {
   const p = prod(id);
   const n = it.cant + d;
   if (n <= 0) CARRITO = CARRITO.filter(i => i.id !== id);
-  else if (p && n > stockVenta(p)) { toast('No hay más unidades disponibles de este perfume', 'error'); return; }
+  else if (p && n > stockVenta(p)) { toast('No hay más unidades disponibles de este tester', 'error'); return; }
   else it.cant = n;
   guardarCarro(); renderCarro();
 }
@@ -889,7 +889,7 @@ const cerrarPaneles = () => $$('.drawer.abierto').forEach(d => cerrar('#' + d.id
 function abrirMenu() {
   const cats = D.categorias.map(c => c.nombre), u = usuario();
   $('#menu-body').innerHTML = `<nav class="menu-l">
-    <a href="#/">${ico('bolsa')} Todos los perfumes</a>
+    <a href="#/">${ico('bolsa')} Todos los testers</a>
     ${D.productos.some(p => vendible(p) && enOferta(p)) ? `<button type="button" data-act="cat" data-cat="ofertas">${ico('corazon')} Ofertas</button>` : ''}
     <a href="#/favoritos">${ico('corazon')} Favoritos</a>
     <a href="#/cuenta">${ico('usuario')} ${u ? 'Mi cuenta y pedidos' : 'Ingresar o crear cuenta'}</a>
@@ -904,7 +904,7 @@ function renderCarro() {
   const ls = lineas(), b = $('#cart-body'), f = $('#cart-foot');
   pintarBadges();
   if (!ls.length) {
-    b.innerHTML = `<div class="vacio">${ico('bolsa')}<p>Tu carrito está vacío</p><button class="btn" type="button" data-act="cerrar" data-panel="#cart">Ver perfumes</button></div>`;
+    b.innerHTML = `<div class="vacio">${ico('bolsa')}<p>Tu carrito está vacío</p><button class="btn" type="button" data-act="cerrar" data-panel="#cart">Ver testers</button></div>`;
     f.innerHTML = ''; return;
   }
   b.innerHTML = ls.map(l => `<div class="lin">
@@ -1086,7 +1086,7 @@ async function enviarPedido(ls, retiro, cli, env, notas) {
 }
 
 /* ---------- vistas de la tienda ---------- */
-const vacioHTML = (t, btn = true) => `<div class="cont"><div class="vacio">${ico('buscar')}<p>${esc(t)}</p>${btn ? '<a class="btn" href="#/">Ver perfumes</a>' : ''}</div></div>`;
+const vacioHTML = (t, btn = true) => `<div class="cont"><div class="vacio">${ico('buscar')}<p>${esc(t)}</p>${btn ? '<a class="btn" href="#/">Ver testers</a>' : ''}</div></div>`;
 
 function heroArte() {
   return `<svg class="hero-arte" viewBox="0 0 260 330" role="img" aria-label="Frasco de perfume con líquido en movimiento">
@@ -1104,20 +1104,20 @@ function heroArte() {
 
 function vistaHome() {
   if (sinCatalogo && !D.productos.length) {
-    $('#vista').innerHTML = `<div class="cont"><div class="vacio">${ico('buscar')}<p>${sinCatalogo === 'error' ? 'No pudimos cargar los perfumes. Revisá tu conexión e intentá de nuevo.' : 'Estamos preparando la tienda. Volvé en un rato.'}</p><button class="btn" type="button" data-act="recargar">Reintentar</button></div></div>`;
+    $('#vista').innerHTML = `<div class="cont"><div class="vacio">${ico('buscar')}<p>${sinCatalogo === 'error' ? 'No pudimos cargar los testers. Revisá tu conexión e intentá de nuevo.' : 'Estamos preparando la tienda. Volvé en un rato.'}</p><button class="btn" type="button" data-act="recargar">Reintentar</button></div></div>`;
     return;
   }
   const c = D.config, foto = !!c.bannerUrl;
   $('#vista').innerHTML = `<div class="cont">
     <section class="hero ${foto ? 'foto' : ''}" id="hero">
-      <div><h1>${esc(c.bannerTitulo)}</h1><p>${esc(c.bannerSubtitulo)}</p><button class="btn" type="button" data-act="ir-catalogo">Ver perfumes</button></div>
+      <div><h1>${esc(c.bannerTitulo)}</h1><p>${esc(c.bannerSubtitulo)}</p><button class="btn" type="button" data-act="ir-catalogo">Ver testers</button></div>
       ${foto ? '' : heroArte()}
     </section>
     <section id="catalogo" aria-label="Catálogo">
       ${textoPromos() ? `<p class="promo-tira"><b>Promos:</b> llevando ${esc(textoPromos())}. Se aplican solas en el carrito.</p>` : ''}
       <div class="chips" id="chips" role="group" aria-label="Categorías"></div>
       <div class="toolbar">
-        <label class="busca">${ico('buscar')}<input id="q" type="search" placeholder="Buscar por nombre, marca o nota" value="${esc(filtro.q)}" aria-label="Buscar perfumes"></label>
+        <label class="busca">${ico('buscar')}<input id="q" type="search" placeholder="Buscar por nombre, marca o nota" value="${esc(filtro.q)}" aria-label="Buscar testers"></label>
         <select id="marca" class="inp" aria-label="Filtrar por marca"></select>
         <select id="orden" class="inp" aria-label="Ordenar por">
           ${[['nuevos', 'Novedades'], ['vendidos', 'Más vendidos'], ['precio-asc', 'Menor precio'], ['precio-desc', 'Mayor precio'], ['az', 'A a Z']].map(([v, t]) => `<option value="${v}" ${filtro.orden === v ? 'selected' : ''}>${t}</option>`).join('')}
@@ -1128,7 +1128,7 @@ function vistaHome() {
         </div>
       </div>
       <div class="res-fila"><p class="ayuda" id="res-n"></p>
-        <label class="ayuda por-pag">Mostrar <select id="por-pag" class="inp" aria-label="Perfumes por página">${[50, 100].map(n => `<option value="${n}" ${porPag === n ? 'selected' : ''}>${n}</option>`).join('')}</select> por página</label></div>
+        <label class="ayuda por-pag">Mostrar <select id="por-pag" class="inp" aria-label="Testers por página">${[50, 100].map(n => `<option value="${n}" ${porPag === n ? 'selected' : ''}>${n}</option>`).join('')}</select> por página</label></div>
       <div class="grid" id="grid" data-vista="${vista}"></div>
       <nav class="pager" id="pager" aria-label="Páginas"></nav>
     </section>
@@ -1182,9 +1182,9 @@ function pintarGrid(mantener) {
   const total = Math.max(1, Math.ceil(l.length / porPag));
   pag = mantener ? Math.min(Math.max(1, pag), total) : 1;
   const ini = (pag - 1) * porPag, vis = l.slice(ini, ini + porPag);
-  $('#res-n').textContent = l.length ? `${l.length} ${l.length === 1 ? 'perfume' : 'perfumes'}${total > 1 ? ` · mostrando ${ini + 1}–${ini + vis.length}` : ''}` : '';
+  $('#res-n').textContent = l.length ? `${l.length} ${l.length === 1 ? 'tester' : 'testers'}${total > 1 ? ` · mostrando ${ini + 1}–${ini + vis.length}` : ''}` : '';
   pintarPager(total);
-  g.innerHTML = l.length ? vis.map(tarjeta).join('') : `<div class="vacio" style="grid-column:1/-1">${ico('buscar')}<p>No encontramos perfumes con ese filtro.</p><button class="btn sec" type="button" data-act="limpiar">Ver todos</button></div>`;
+  g.innerHTML = l.length ? vis.map(tarjeta).join('') : `<div class="vacio" style="grid-column:1/-1">${ico('buscar')}<p>No encontramos testers con ese filtro.</p><button class="btn sec" type="button" data-act="limpiar">Ver todos</button></div>`;
 }
 function pintarPager(total) {
   const el = $('#pager'); if (!el) return;
@@ -1221,7 +1221,7 @@ function tarjeta(p) {
 
 function vistaProducto(id) {
   const p = prod(id);
-  if (!p || !vendible(p)) { $('#vista').innerHTML = vacioHTML('Ese perfume no está disponible.'); return; }
+  if (!p || !vendible(p)) { $('#vista').innerHTML = vacioHTML('Ese tester no está disponible.'); return; }
   const st = stockVenta(p), of = enOferta(p), fav = FAVS.includes(p.id);
   const imgs = p.imagenes && p.imagenes.length ? p.imagenes : [null];
   const notas = String(p.notas || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -1260,7 +1260,7 @@ function vistaFavoritos() {
   document.title = 'Favoritos — ' + D.config.nombreTienda;
   $('#vista').innerHTML = `<div class="cont"><h2 style="margin:1.2rem 0">Tus favoritos</h2>${l.length
     ? `<div class="grid" data-vista="compacta">${l.map(tarjeta).join('')}</div>`
-    : `<div class="vacio">${ico('corazon')}<p>Todavía no marcaste ningún perfume.</p><a class="btn" href="#/">Ver perfumes</a></div>`}</div>`;
+    : `<div class="vacio">${ico('corazon')}<p>Todavía no marcaste ningún tester.</p><a class="btn" href="#/">Ver testers</a></div>`}</div>`;
 }
 
 function vistaAuth() {
@@ -1420,11 +1420,14 @@ function vistaContacto() {
   ].filter(Boolean);
   $('#vista').innerHTML = `<div class="cont" style="max-width:760px">
     <h2 style="margin:1.2rem 0">Contacto y preguntas</h2>
+    <section class="panel"><h2>Sobre nuestros testers</h2>
+      <p>Todos nuestros productos son <b>testers de 60 ml</b>, con un <b>98% de similitud con los originales</b> y un <b>35% de esencia a base de aceite</b>.</p></section>
     <section class="panel"><h2>Hablemos</h2><div style="display:grid;gap:.8rem;justify-items:start">${items.length ? items.join('') : '<p class="suave">Todavía no hay datos de contacto cargados.</p>'}</div></section>
     <section class="panel"><h2>Preguntas frecuentes</h2>
-      <details><summary>¿Cómo compro?</summary><p>Elegí tus perfumes, agregalos al carrito y completá tus datos. Al confirmar te llevamos a WhatsApp para coordinar el pago por transferencia y enviarnos el comprobante.</p></details>
+      <details open><summary>¿Qué son los testers?</summary><p>Son testers de 60 ml, con un 98% de similitud con los originales y un 35% de esencia a base de aceite.</p></details>
+      <details><summary>¿Cómo compro?</summary><p>Elegí tus testers, agregalos al carrito y completá tus datos. Al confirmar te llevamos a WhatsApp para coordinar el pago por transferencia y enviarnos el comprobante.</p></details>
       <details><summary>¿Cómo se paga?</summary><p>Por transferencia bancaria. Los precios publicados ya son con transferencia. Al confirmar el pedido ves el alias o CBU para transferir.</p></details>
-      <details><summary>¿Cómo se calcula el envío?</summary><p>Enviamos por Correo Argentino y el pedido llega a la sucursal que elijas vos al comprar (nombre y dirección). Si no sabés cuál te queda más cerca, la podés buscar en el <a href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" rel="noopener">buscador de sucursales</a> antes de finalizar.${D.envios.gratisTodo ? ' El envío es gratis a todo el país.' : ' El costo depende de tu provincia y de la cantidad de perfumes.'} ${!D.envios.gratisTodo && Number(c.envioGratisDesde) > 0 ? `En compras desde ${fmt(c.envioGratisDesde)} el envío es gratis.` : ''} Lo ves antes de confirmar el pedido.</p></details>
+      <details><summary>¿Cómo se calcula el envío?</summary><p>Enviamos por Correo Argentino y el pedido llega a la sucursal que elijas vos al comprar (nombre y dirección). Si no sabés cuál te queda más cerca, la podés buscar en el <a href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" rel="noopener">buscador de sucursales</a> antes de finalizar.${D.envios.gratisTodo ? ' El envío es gratis a todo el país.' : ' El costo depende de tu provincia y de la cantidad de testers.'} ${!D.envios.gratisTodo && Number(c.envioGratisDesde) > 0 ? `En compras desde ${fmt(c.envioGratisDesde)} el envío es gratis.` : ''} Lo ves antes de confirmar el pedido.</p></details>
       ${c.retiroLocal ? '<details><summary>¿Puedo retirar en persona?</summary><p>Sí. Al finalizar la compra elegí “Retiro en el local” y coordinamos día y horario por WhatsApp.</p></details>' : ''}
       <details><summary>¿Dónde veo mis pedidos?</summary><p>En <a href="#/cuenta">Mi cuenta</a>. Ahí también podés retomar la conversación por WhatsApp si quedó algo por coordinar.</p></details>
     </section></div>`;
@@ -1962,7 +1965,7 @@ document.addEventListener('click', async e => {
     case 'carro-mas': cambiarCant(id, 1); break;
     case 'carro-menos': cambiarCant(id, -1); break;
     case 'carro-quitar': CARRITO = CARRITO.filter(i => i.id !== id); guardarCarro(); renderCarro(); break;
-    case 'carro-vaciar': if (await confirmar('¿Vaciar el carrito?', 'Se van a quitar todos los perfumes.', 'Vaciar')) { CARRITO = []; guardarCarro(); renderCarro(); } break;
+    case 'carro-vaciar': if (await confirmar('¿Vaciar el carrito?', 'Se van a quitar todos los testers.', 'Vaciar')) { CARRITO = []; guardarCarro(); renderCarro(); } break;
     case 'checkout': abrirCheckout(); break;
     case 'copiar': copiarTexto(el.dataset.txt); break;
     case 'salir': cerrarSesion(); break;
