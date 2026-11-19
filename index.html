@@ -1011,15 +1011,15 @@ function totalesCheckout() {
 const numeroPedido = () => 'AP-' + new Date().toISOString().slice(2, 10).replace(/-/g, '') + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
 
 function armarMensaje(p) {
-  const c = p.cliente, L = [`Hola! Quiero confirmar mi pedido ${p.numero} en ${D.config.nombreTienda}.`, ''];
+  const c = p.cliente, L = [`Hola! Quiero confirmar mi pedido *${p.numero}* en ${D.config.nombreTienda}.`, '', '*PEDIDO*'];
   p.items.forEach(i => L.push(`• ${i.cant} × ${i.nombre} — ${fmt(i.precio * i.cant)}`));
-  if (p.descuento > 0) L.push('', `Promo por cantidad: -${fmt(p.descuento)}`);
-  L.push('', `Subtotal: ${fmt(p.subtotal)}`);
-  L.push(p.esRetiro ? 'Entrega: retiro en el local' : `Envío (${p.zona}): ${p.envio ? fmt(p.envio) : 'gratis'}`);
-  L.push(`Total: ${fmt(p.total)}`, '', `Nombre y apellido: ${c.nombre}`, ...((c.entreCalles || '').startsWith('DNI ') ? [`DNI: ${c.entreCalles.slice(4)}`] : []), `Celular: ${c.telefono}`);
+  L.push('', p.esRetiro ? 'Entrega: retiro en el local' : (p.envio ? `Envío: ${fmt(p.envio)}` : 'Envío gratis'));
+  L.push(`*TOTAL: ${fmt(p.total)}*`, '', '*DATOS PERSONALES*', `Nombre y apellido: ${c.nombre}`);
+  if ((c.entreCalles || '').startsWith('DNI ')) L.push(`DNI: ${c.entreCalles.slice(4)}`);
+  L.push(`Celular: ${c.telefono}`);
   if (p.clienteEmail) L.push(`Email: ${p.clienteEmail}`);
-  if (!p.esRetiro) L.push(`Provincia, localidad y CP: ${c.provincia}, ${c.ciudad}, CP ${c.codigoPostal}`, `Sucursal de Correo Argentino: ${(c.direccion || '').replace(/^Sucursal: /, '')}`);
-  if (p.notas) L.push(`Notas: ${p.notas}`);
+  if (!p.esRetiro) L.push('', '*ENVÍO A SUCURSAL*', `Provincia: ${c.provincia}`, `Localidad: ${c.ciudad}`, `Código postal: ${c.codigoPostal}`, `Sucursal de Correo Argentino: ${(c.direccion || '').replace(/^sucursal:\s*/i, '')}`);
+  if (p.notas) L.push('', `Notas: ${p.notas}`);
   L.push('', 'Te paso el comprobante de la transferencia por acá.');
   return L.join('\n');
 }
@@ -1582,7 +1582,7 @@ function admProductos() {
     <select class="inp" id="adm-f" aria-label="Filtrar productos">${[['todos', 'Todos'], ['sinfoto', 'Sin foto'], ['sinstock', 'Sin stock'], ['bajo', 'Stock bajo'], ['ofertas', 'En oferta'], ['inactivos', 'Ocultos']].map(([v, t]) => `<option value="${v}" ${adm.pf === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
     <select class="inp" id="adm-c" aria-label="Filtrar por categoría"><option value="todas">Todas las categorías</option>${D.categorias.map(c => `<option value="${esc(c.nombre)}" ${adm.pc === c.nombre ? 'selected' : ''}>${esc(c.nombre)}</option>`).join('')}</select>
     <select class="inp" id="adm-v" aria-label="Cambiar la vista">${[['lista', 'Vista: Lista'], ['compacta', 'Vista: Compacta'], ['cuadricula', 'Vista: Cuadrícula'], ['marca', 'Vista: Por marca']].map(([v, t]) => `<option value="${v}" ${adm.pv === v ? 'selected' : ''}>${t}</option>`).join('')}</select>
-    <button class="btn" type="button" data-act="p-nuevo">${ico('mas')} Nuevo tester</button></div>
+    <button class="btn chico btn-nuevo" type="button" data-act="p-nuevo">${ico('mas')} Nuevo</button></div>
     <p class="ayuda" id="adm-cuenta" style="margin:0 0 .6rem"></p>
     <div id="adm-lista"></div>`;
   admProdLista();
@@ -1747,11 +1747,18 @@ function cambiarEstado(id, nuevo) {
   LS.set('vendidos', VEND); LS.set('pedidos', PEDIDOS); pintarBadges();
   return true;
 }
+const textoPedido = p => { const c = p.cliente || {}; return norm([p.numero, c.nombre, c.telefono, String(c.telefono || '').replace(/\D/g, ''), p.clienteEmail, c.direccion, c.entreCalles, c.ciudad, c.provincia, c.codigoPostal, p.notas, p.zona, p.total, (p.items || []).map(i => i.nombre).join(' ')].join(' ')); };
 function admPedidos() {
-  const l = PEDIDOS.filter(p => adm.ped === 'todos' || p.estado === adm.ped);
-  $('#adm-cont').innerHTML = `<div class="toolbar"><select class="inp" id="adm-ped-f" aria-label="Filtrar pedidos por estado"><option value="todos">Todos los estados</option>${Object.entries(ESTADOS).map(([k, t]) => `<option value="${k}" ${adm.ped === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+  $('#adm-cont').innerHTML = `<div class="toolbar"><label class="busca">${ico('buscar')}<input id="adm-pq" type="search" placeholder="Buscar pedido, nombre, teléfono, DNI…" value="${esc(adm.pqp || '')}" aria-label="Buscar pedidos"></label><select class="inp" id="adm-ped-f" aria-label="Filtrar pedidos por estado"><option value="todos">Todos los estados</option>${Object.entries(ESTADOS).map(([k, t]) => `<option value="${k}" ${adm.ped === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
     ${API() ? `<p class="aviso">${admError ? 'No se pudieron cargar los pedidos: ' + esc(admError) : 'Acá están los pedidos de todos tus clientes. Al cancelar uno, el stock vuelve solo.'}</p>
     <button class="btn sec chico" type="button" data-act="adm-recargar" style="margin-bottom:.8rem">Actualizar pedidos</button>` : '<p class="aviso">Acá aparecen los pedidos hechos desde este navegador. Los de tus clientes te llegan por WhatsApp; al cancelar un pedido, el stock vuelve solo.</p>'}
+    <div id="ped-lista"></div>`;
+  admPedLista();
+}
+function admPedLista() {
+  const q = norm(adm.pqp || '').trim().split(/\s+/).filter(Boolean);
+  const l = PEDIDOS.filter(p => (adm.ped === 'todos' || p.estado === adm.ped) && (!q.length || (t => q.every(w => t.includes(w)))(textoPedido(p))));
+  $('#ped-lista').innerHTML = `${q.length ? `<p class="ayuda" style="margin:0 0 .6rem">${l.length} pedido${l.length === 1 ? '' : 's'} encontrado${l.length === 1 ? '' : 's'}</p>` : ''}
     ${l.length ? l.map(p => {
       const c = p.cliente, tel = normalizarWA(c.telefono);
       return `<div class="ped"><div class="ped-top"><strong>${esc(p.numero)}</strong>
@@ -1765,7 +1772,7 @@ function admPedidos() {
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
           ${tel ? `<a class="btn chico" target="_blank" rel="noopener" href="${esc(linkWA(tel, `Hola ${c.nombre}! Te escribimos por tu pedido ${p.numero}.`))}">${ico('chat')} WhatsApp al cliente</a>` : ''}
           ${p.estado === 'cancelado' ? `<button class="btn peligro chico" type="button" data-act="ped-borrar" data-id="${esc(p.id)}">${ico('papelera')} Eliminar</button>` : ''}</div></div>`;
-    }).join('') : `<div class="vacio">${ico('bolsa')}<p>No hay pedidos con ese estado.</p></div>`}`;
+    }).join('') : `<div class="vacio">${ico('bolsa')}<p>${q.length ? 'No encontramos pedidos con esa búsqueda.' : 'No hay pedidos con ese estado.'}</p></div>`}`;
 }
 
 /* ---------- envíos ---------- */
@@ -2100,6 +2107,7 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'q') { filtro.q = t.value; pintarGrid(); }
   else if (t.id === 'adm-q') { adm.pq = t.value; admProdLista(); }
+  else if (t.id === 'adm-pq') { adm.pqp = t.value; admPedLista(); }
   else if (t.hasAttribute && t.hasAttribute('data-miles')) miles(t);
   else if (t.id === 'cfg-wa') $('#cfg-wa-prev').textContent = normalizarWA(t.value) || '—';
   else if (t.id === 'cfg-burl') {
