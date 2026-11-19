@@ -1260,7 +1260,7 @@ function vistaAuth() {
     ${reg ? `<form id="form-registro">
       <div class="campo"><label for="r-nombre">Nombre y apellido</label><input class="inp" id="r-nombre" required maxlength="60" autocomplete="name"></div>
       <div class="campo"><label for="r-email">Email</label><input class="inp" id="r-email" type="email" required autocomplete="email" inputmode="email"></div>
-      <div class="campo"><label for="r-tel">Teléfono</label><input class="inp" id="r-tel" type="tel" required autocomplete="tel"></div>
+      <div class="campo"><label for="r-tel">Celular</label><input class="inp" id="r-tel" type="tel" required autocomplete="tel"></div>
       <div class="campo"><label for="r-pass">Contraseña (mínimo 6 caracteres)</label><input class="inp" id="r-pass" type="password" data-pw minlength="6" required autocomplete="new-password"></div>
       <div class="campo"><label for="r-pass2">Repetir contraseña</label><input class="inp" id="r-pass2" type="password" data-pw minlength="6" required autocomplete="new-password"></div>
       <label class="chk"><input type="checkbox" data-verpass> Mostrar contraseñas</label>
@@ -1302,11 +1302,11 @@ function vistaCuenta() {
       <p class="ayuda" style="margin-bottom:.8rem">Se usan para completar tus compras más rápido.</p>
       <form id="form-cuenta">
         <div class="campo"><label for="u-nombre">Nombre y apellido</label><input class="inp" id="u-nombre" required value="${esc(u.nombre || '')}"></div>
-        <div class="campo"><label for="u-tel">Teléfono</label><input class="inp" id="u-tel" type="tel" value="${esc(u.telefono || '')}"></div>
-        <div class="campo"><label for="u-dir">Calle y número</label><input class="inp" id="u-dir" value="${esc(u.direccion || '')}"></div>
-        <div class="campo"><label for="u-entre">Entre calles</label><input class="inp" id="u-entre" value="${esc(u.entreCalles || '')}"></div>
+        <div class="campo"><label for="u-dni">DNI</label><input class="inp" id="u-dni" inputmode="numeric" maxlength="10" value="${esc((u.entreCalles || '').startsWith('DNI ') ? u.entreCalles.slice(4) : '')}"></div>
+        <div class="campo"><label for="u-tel">Celular</label><input class="inp" id="u-tel" type="tel" value="${esc(u.telefono || '')}"></div>
+        <div class="campo"><label for="u-dir">Sucursal de Correo Argentino (nombre y dirección)</label><input class="inp" id="u-dir" maxlength="95" value="${esc((u.direccion || '').replace(/^Sucursal: /, ''))}"></div>
         <div class="fila2">
-          <div class="campo"><label for="u-ciudad">Ciudad</label><input class="inp" id="u-ciudad" value="${esc(u.ciudad || '')}"></div>
+          <div class="campo"><label for="u-ciudad">Localidad</label><input class="inp" id="u-ciudad" value="${esc(u.ciudad || '')}"></div>
           <div class="campo"><label for="u-cp">Código postal</label><input class="inp" id="u-cp" value="${esc(u.codigoPostal || '')}"></div>
         </div>
         <div class="campo"><label for="u-prov">Provincia</label><select class="inp" id="u-prov"><option value="">Elegí tu provincia</option>${PROVINCIAS.map(p => `<option ${u.provincia === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
@@ -2110,7 +2110,7 @@ document.addEventListener('submit', async e => {
     case 'form-registro': await registrar(); break;
     case 'form-cuenta': {
       const u = usuario(); if (!u) break;
-      const datos = { nombre: $('#u-nombre').value.trim() || u.nombre, telefono: $('#u-tel').value.trim(), direccion: $('#u-dir').value.trim(), entreCalles: $('#u-entre').value.trim(), ciudad: $('#u-ciudad').value.trim(), codigoPostal: $('#u-cp').value.trim(), provincia: $('#u-prov').value };
+      const datos = { nombre: $('#u-nombre').value.trim() || u.nombre, telefono: $('#u-tel').value.trim(), direccion: $('#u-dir').value.trim() ? 'Sucursal: ' + $('#u-dir').value.trim() : '', entreCalles: $('#u-dni').value.trim() ? 'DNI ' + $('#u-dni').value.trim() : '', ciudad: $('#u-ciudad').value.trim(), codigoPostal: $('#u-cp').value.trim(), provincia: $('#u-prov').value };
       if (API()) {
         const r = await api('/yo', { metodo: 'PUT', cuerpo: datos });
         if (!r.ok) { toast(r.error, 'error'); break; }
