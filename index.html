@@ -604,7 +604,7 @@ const API = () => String(API_URL || '').replace(/\/+$/, '');
 const usuario = () => API() ? USER : (CUENTAS.find(c => c.id === SESION) || null);
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 let vista = LS.get('vista', 'compacta');
-const filtro = { q: '', cat: 'todas', marca: '', orden: 'nuevos' };
+const filtro = { q: '', cat: 'todas', marca: '', orden: 'az' };
 let pag = 1, porPag = [50, 100].includes(Number(LS.get('porpag', 50))) ? Number(LS.get('porpag', 50)) : 50;
 
 function normalizarDatos(x) {
@@ -1132,7 +1132,7 @@ function vistaHome() {
         <label class="busca">${ico('buscar')}<input id="q" type="search" placeholder="Buscar por nombre, marca o nota" value="${esc(filtro.q)}" aria-label="Buscar testers"></label>
         <select id="marca" class="inp" aria-label="Filtrar por marca"></select>
         <select id="orden" class="inp" aria-label="Ordenar por">
-          ${[['nuevos', 'Novedades'], ['vendidos', 'Más vendidos'], ['precio-asc', 'Menor precio'], ['precio-desc', 'Mayor precio'], ['az', 'A a Z']].map(([v, t]) => `<option value="${v}" ${filtro.orden === v ? 'selected' : ''}>${t}</option>`).join('')}
+          ${[['az', 'A a Z'], ['za', 'Z a A'], ['precio-asc', 'Menor precio'], ['precio-desc', 'Mayor precio']].map(([v, t]) => `<option value="${v}" ${filtro.orden === v ? 'selected' : ''}>${t}</option>`).join('')}
         </select>
         <div class="vtog" role="group" aria-label="Tipo de vista">
           <button type="button" data-act="vista" data-v="compacta" class="${vista === 'compacta' ? 'on' : ''}" aria-label="Vista compacta" aria-pressed="${vista === 'compacta'}">${ico('compacta')}</button>
@@ -1189,9 +1189,8 @@ function filtrar() {
   const o = filtro.orden;
   l.sort((a, b) => o === 'precio-asc' ? precioFinal(a) - precioFinal(b)
     : o === 'precio-desc' ? precioFinal(b) - precioFinal(a)
-    : o === 'vendidos' ? ventas(b) - ventas(a)
-    : o === 'az' ? a.nombre.localeCompare(b.nombre, 'es')
-    : new Date(b.fecha) - new Date(a.fecha));
+    : o === 'za' ? b.nombre.localeCompare(a.nombre, 'es')
+    : a.nombre.localeCompare(b.nombre, 'es'));
   return [...l.filter(disponible), ...l.filter(p => !disponible(p))];
 }
 function pintarGrid(mantener) {
