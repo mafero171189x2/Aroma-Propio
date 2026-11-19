@@ -138,7 +138,8 @@ body.en-admin .hdr,body.en-admin .foot{display:none}
 .vtog button.on{background:var(--btn-fondo);color:var(--btn-texto)}
 
 /* Grilla y tarjetas */
-.promo-tira{background:#fff4d6;border:1px solid #f2b94b;border-radius:12px;padding:.6rem .8rem;margin-bottom:.8rem;font-size:.92rem}
+.promo-tira{background:#fff4d6;border:1px solid #f2b94b;border-radius:12px;padding:.6rem .8rem;margin:.2rem 0 1.1rem;font-size:.92rem;line-height:1.4}
+@media(max-width:639px){.toolbar{display:grid;grid-template-columns:1fr auto;gap:.6rem;margin-bottom:1rem}.busca{grid-column:1/-1;flex:none}.toolbar #marca{grid-column:1/-1}.toolbar select{width:100%;min-width:0}.chips{padding-bottom:1rem}.res-fila{margin-top:.2rem}}
 .res-fila{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
 .por-pag{display:flex;align-items:center;gap:.4rem;margin:0}.por-pag select{width:auto;min-height:36px;padding:.2rem .5rem}
 .pager{display:flex;justify-content:center;align-items:center;gap:.35rem;flex-wrap:wrap;margin:1.4rem 0 .4rem}
@@ -911,7 +912,7 @@ function renderCarro() {
   }
   const dp = descPromo().desc, tp = textoPromos();
   f.innerHTML = `${prog}${tp ? `<div class="ayuda">Promo: llevando ${esc(tp)}</div>` : ''}${dp > 0 ? `<div class="fila-t"><span>Promo por cantidad</span><span>-${fmt(dp)}</span></div>` : ''}<div class="fila-t total"><span>Subtotal</span><span>${fmt(sub)}</span></div>
-    <p class="ayuda" style="margin:.3rem 0 .8rem">${D.envios.gratisTodo ? 'Envío gratis a todas las provincias.' : 'El envío se calcula al finalizar la compra.'}</p>
+    <p class="ayuda" style="margin:.3rem 0 .8rem">${D.envios.gratisTodo ? 'Envío gratis a todo el país.' : 'El costo del envío se calcula al finalizar.'} Llega a la sucursal de Correo Argentino que elijas.</p>
     <button class="btn block" type="button" data-act="checkout">Finalizar compra</button>
     <button class="btn sec block chico" type="button" data-act="carro-vaciar" style="margin-top:.5rem">Vaciar carrito</button>`;
 }
@@ -1102,6 +1103,7 @@ function vistaHome() {
       ${foto ? '' : heroArte()}
     </section>
     <section id="catalogo" aria-label="Catálogo">
+      ${textoPromos() ? `<p class="promo-tira"><b>Promos:</b> llevando ${esc(textoPromos())}. Se aplican solas en el carrito.</p>` : ''}
       <div class="chips" id="chips" role="group" aria-label="Categorías"></div>
       <div class="toolbar">
         <label class="busca">${ico('buscar')}<input id="q" type="search" placeholder="Buscar por nombre, marca o nota" value="${esc(filtro.q)}" aria-label="Buscar perfumes"></label>
@@ -1114,7 +1116,6 @@ function vistaHome() {
           <button type="button" data-act="vista" data-v="detalle" class="${vista === 'detalle' ? 'on' : ''}" aria-label="Vista con foto grande" aria-pressed="${vista === 'detalle'}">${ico('detalle')}</button>
         </div>
       </div>
-      ${textoPromos() ? `<p class="promo-tira"><b>Promos:</b> llevando ${esc(textoPromos())}. Se aplican solas en el carrito.</p>` : ''}
       <div class="res-fila"><p class="ayuda" id="res-n"></p>
         <label class="ayuda por-pag">Mostrar <select id="por-pag" class="inp" aria-label="Perfumes por página">${[50, 100].map(n => `<option value="${n}" ${porPag === n ? 'selected' : ''}>${n}</option>`).join('')}</select> por página</label></div>
       <div class="grid" id="grid" data-vista="${vista}"></div>
@@ -1408,7 +1409,7 @@ function vistaContacto() {
     <section class="panel"><h2>Preguntas frecuentes</h2>
       <details><summary>¿Cómo compro?</summary><p>Elegí tus perfumes, agregalos al carrito y completá tus datos. Al confirmar te llevamos a WhatsApp para coordinar el pago por transferencia y enviarnos el comprobante.</p></details>
       <details><summary>¿Cómo se paga?</summary><p>Por transferencia bancaria. Los precios publicados ya son con transferencia. Al confirmar el pedido ves el alias o CBU para transferir.</p></details>
-      <details><summary>¿Cómo se calcula el envío?</summary><p>${D.envios.gratisTodo ? 'El envío es gratis a todas las provincias del país.' : 'Depende de tu provincia y de la cantidad de perfumes.'} ${!D.envios.gratisTodo && Number(c.envioGratisDesde) > 0 ? `En compras desde ${fmt(c.envioGratisDesde)} el envío es gratis.` : ''} Lo ves antes de confirmar el pedido.</p></details>
+      <details><summary>¿Cómo se calcula el envío?</summary><p>Enviamos por Correo Argentino y el pedido llega a la sucursal que elijas vos al comprar (nombre y dirección). Si no sabés cuál te queda más cerca, la podés buscar en el <a href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" rel="noopener">buscador de sucursales</a> antes de finalizar.${D.envios.gratisTodo ? ' El envío es gratis a todo el país.' : ' El costo depende de tu provincia y de la cantidad de perfumes.'} ${!D.envios.gratisTodo && Number(c.envioGratisDesde) > 0 ? `En compras desde ${fmt(c.envioGratisDesde)} el envío es gratis.` : ''} Lo ves antes de confirmar el pedido.</p></details>
       ${c.retiroLocal ? '<details><summary>¿Puedo retirar en persona?</summary><p>Sí. Al finalizar la compra elegí “Retiro en el local” y coordinamos día y horario por WhatsApp.</p></details>' : ''}
       <details><summary>¿Dónde veo mis pedidos?</summary><p>En <a href="#/cuenta">Mi cuenta</a>. Ahí también podés retomar la conversación por WhatsApp si quedó algo por coordinar.</p></details>
     </section></div>`;
