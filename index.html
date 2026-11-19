@@ -138,6 +138,7 @@ body.en-admin .hdr,body.en-admin .foot{display:none}
 .vtog button.on{background:var(--btn-fondo);color:var(--btn-texto)}
 
 /* Grilla y tarjetas */
+.promo-tira{background:#fff4d6;border:1px solid #f2b94b;border-radius:12px;padding:.6rem .8rem;margin-bottom:.8rem;font-size:.92rem}
 .res-fila{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
 .por-pag{display:flex;align-items:center;gap:.4rem;margin:0}.por-pag select{width:auto;min-height:36px;padding:.2rem .5rem}
 .pager{display:flex;justify-content:center;align-items:center;gap:.35rem;flex-wrap:wrap;margin:1.4rem 0 .4rem}
@@ -762,6 +763,22 @@ const enOferta = p => !!p.enOferta && Number(p.porcentajeDescuento) > 0;
 /* Precio propio del producto; si no tiene (0 o vacío) se usa el precio general de Configuración. */
 const precioBase = p => Number(p.precio) > 0 ? Number(p.precio) : (Number(D.config.precioGeneral) || 0);
 const precioFinal = p => enOferta(p) ? Math.round(precioBase(p) * (1 - p.porcentajeDescuento / 100)) : precioBase(p);
+/* Promos por cantidad: se aplican a los perfumes con precio general y sin oferta propia. Se arma la mejor combinación de packs (ej. 13 = 10 + 3). */
+const PROMOS_DEF = [{ cant: 3, precio: 42000 }, { cant: 10, precio: 115000 }, { cant: 20, precio: 220000 }];
+const packsPromo = () => (Array.isArray(D.config.promos) ? D.config.promos : PROMOS_DEF).map(x => ({ cant: Math.floor(Number(x.cant)), precio: Math.round(Number(x.precio)) })).filter(x => x.cant >= 2 && x.precio > 0);
+function costoPacks(n, unit, packs) {
+  const c = [0];
+  for (let i = 1; i <= n; i++) { let m = c[i - 1] + unit; for (const k of packs) if (k.cant <= i) m = Math.min(m, c[i - k.cant] + k.precio); c[i] = m; }
+  return c[n];
+}
+const elegiblePromo = p => !(Number(p.precio) > 0) && !enOferta(p);
+function descPromo() {
+  const unit = Number(D.config.precioGeneral) || 0, packs = packsPromo();
+  const n = lineas().filter(l => elegiblePromo(l.p)).reduce((a, l) => a + l.cant, 0);
+  if (!n || !unit || !packs.length) return { desc: 0, n };
+  return { desc: Math.max(0, n * unit - costoPacks(n, unit, packs)), n };
+}
+function textoPromos() { return packsPromo().sort((a, b) => a.cant - b.cant).map(x => `${x.cant} por ${fmt(x.precio)}`).join(' · '); }
 /* Un perfume se vende solo si está visible y tiene algún precio. */
 const vendible = p => !!p.activo && precioBase(p) > 0;
 /* Con "sin control de stock" (o si el producto no tiene stock cargado) siempre se puede comprar y nunca se muestran cantidades. */
@@ -793,7 +810,8 @@ function depurarCarro() {
   if (cambio) LS.set('carrito', CARRITO);
 }
 const lineas = () => { depurarCarro(); return CARRITO.map(i => { const p = prod(i.id); return { p, cant: i.cant, precio: precioFinal(p) }; }); };
-const subtotal = () => lineas().reduce((a, l) => a + l.precio * l.cant, 0);
+const subtotalBruto = () => lineas().reduce((a, l) => a + l.precio * l.cant, 0);
+const subtotal = () => subtotalBruto() - descPromo().desc;
 const articulos = () => CARRITO.reduce((a, i) => a + i.cant, 0);
 function guardarCarro() { LS.set('carrito', CARRITO); pintarBadges(); }
 
@@ -891,7 +909,8 @@ function renderCarro() {
     const pct = Math.min(100, Math.round(sub / min * 100));
     prog = `<div class="ayuda">${sub >= min ? '¡Tu envío es gratis!' : `Te faltan ${fmt(min - sub)} para el envío gratis`}</div><div class="barra"><i style="width:${pct}%"></i></div>`;
   }
-  f.innerHTML = `${prog}<div class="fila-t total"><span>Subtotal</span><span>${fmt(sub)}</span></div>
+  const dp = descPromo().desc, tp = textoPromos();
+  f.innerHTML = `${prog}${tp ? `<div class="ayuda">Promo: llevando ${esc(tp)}</div>` : ''}${dp > 0 ? `<div class="fila-t"><span>Promo por cantidad</span><span>-${fmt(dp)}</span></div>` : ''}<div class="fila-t total"><span>Subtotal</span><span>${fmt(sub)}</span></div>
     <p class="ayuda" style="margin:.3rem 0 .8rem">${D.envios.gratisTodo ? 'Envío gratis a todas las provincias.' : 'El envío se calcula al finalizar la compra.'}</p>
     <button class="btn block" type="button" data-act="checkout">Finalizar compra</button>
     <button class="btn sec block chico" type="button" data-act="carro-vaciar" style="margin-top:.5rem">Vaciar carrito</button>`;
@@ -917,24 +936,25 @@ function renderCheckout() {
   $('#co-titulo').textContent = 'Finalizar compra';
   $('#co-body').innerHTML = `<form id="form-co">
     ${retiro ? `<div class="opcion-entrega" id="co-modo">
-      <label class="on"><input type="radio" name="modo" value="envio" checked> Envío a domicilio</label>
+      <label class="on"><input type="radio" name="modo" value="envio" checked> Retiro en sucursal de Correo Argentino</label>
       <label><input type="radio" name="modo" value="retiro"> Retiro en el local</label></div>` : ''}
     <div class="campo"><label for="c-nombre">Nombre y apellido</label><input class="inp" id="c-nombre" required autocomplete="name" value="${esc(c.nombre || '')}"></div>
-    <div class="campo"><label for="c-tel">Teléfono</label><input class="inp" id="c-tel" type="tel" required autocomplete="tel" value="${esc(c.telefono || '')}"></div>
+    <div class="campo"><label for="c-dni">DNI</label><input class="inp" id="c-dni" required inputmode="numeric" maxlength="10" autocomplete="off" value="${esc((c.entreCalles || '').startsWith('DNI ') ? c.entreCalles.slice(4) : '')}"></div>
+    <div class="campo"><label for="c-tel">Celular</label><input class="inp" id="c-tel" type="tel" required autocomplete="tel" value="${esc(c.telefono || '')}"></div>
     <div id="co-envio">
-      <div class="campo"><label for="c-dir">Calle y número</label><input class="inp" id="c-dir" required autocomplete="street-address" value="${esc(c.direccion || '')}"></div>
-      <div class="campo"><label for="c-entre">Entre calles (opcional)</label><input class="inp" id="c-entre" value="${esc(c.entreCalles || '')}"></div>
       <div class="fila2">
-        <div class="campo"><label for="c-ciudad">Ciudad</label><input class="inp" id="c-ciudad" required value="${esc(c.ciudad || '')}"></div>
+        <div class="campo"><label for="c-ciudad">Localidad</label><input class="inp" id="c-ciudad" required value="${esc(c.ciudad || '')}"></div>
         <div class="campo"><label for="c-cp">Código postal</label><input class="inp" id="c-cp" required inputmode="numeric" value="${esc(c.codigoPostal || '')}"></div>
       </div>
       <div class="campo"><label for="c-prov">Provincia</label><select class="inp" id="c-prov" required><option value="">Elegí tu provincia</option>${PROVINCIAS.map(p => `<option ${c.provincia === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
+      <div class="campo"><label for="c-dir">¿En qué sucursal de Correo Argentino retirás? (nombre y dirección)</label><input class="inp" id="c-dir" required maxlength="95" value="${esc((c.direccion || '').startsWith('Sucursal: ') ? c.direccion.slice(10) : '')}">
+        <p class="ayuda">Si no sabés cuál te queda cerca, buscala <a href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" rel="noopener">acá</a>. Si querés, mandanos por WhatsApp una captura de la que elijas, así no vuelve el paquete.</p></div>
     </div>
     <div class="caja" id="co-retiro" hidden><strong>Retirás en el local</strong><p id="co-retiro-dir" class="suave"></p></div>
     <div class="campo"><label for="c-notas">Notas del pedido (opcional)</label><textarea class="inp" id="c-notas" rows="2"></textarea></div>
     <div class="caja" id="co-res"></div>
     <div class="aviso err" id="co-aviso" hidden></div>
-    <p class="ayuda" style="margin-bottom:.8rem">Al confirmar, te llevamos a WhatsApp para coordinar el pago por transferencia y enviar el comprobante.</p>
+    <p class="ayuda" style="margin-bottom:.8rem">Al confirmar, te llevamos a WhatsApp para coordinar el pago por transferencia y enviar el comprobante. El pedido se retira en la sucursal de Correo Argentino que elijas.</p>
     <button class="btn block" id="co-ok" type="submit">Confirmar pedido</button>
   </form>`;
   aplicarModo();
@@ -943,7 +963,7 @@ const esRetiro = () => !!D.config.retiroLocal && $('#form-co input[name=modo]:ch
 function aplicarModo() {
   const r = esRetiro();
   $('#co-envio').hidden = r;
-  ['c-dir', 'c-ciudad', 'c-cp', 'c-prov'].forEach(id => { const e = $('#' + id); if (e) e.required = !r; });
+  ['c-dir', 'c-ciudad', 'c-cp', 'c-prov', 'c-dni'].forEach(id => { const e = $('#' + id); if (e) e.required = !r; });
   $('#co-retiro').hidden = !r;
   $('#co-retiro-dir').textContent = D.config.direccionContacto || 'Te pasamos la dirección por WhatsApp.';
   $$('#co-modo label').forEach(l => l.classList.toggle('on', l.querySelector('input').checked));
@@ -957,6 +977,7 @@ function totalesCheckout() {
   const aviso = $('#co-aviso');
   aviso.hidden = env.ok; if (!env.ok) aviso.textContent = env.motivo;
   $('#co-res').innerHTML = `${lineas().map(l => `<div class="fila-t"><span>${l.cant} × ${esc(l.p.nombre)}</span><span>${fmt(l.precio * l.cant)}</span></div>`).join('')}
+    ${descPromo().desc > 0 ? `<div class="fila-t"><span>Promo por cantidad</span><span>-${fmt(descPromo().desc)}</span></div>` : ''}
     <div class="fila-t"><span>Subtotal</span><span>${fmt(sub)}</span></div>
     <div class="fila-t"><span>Envío ${det ? '(' + esc(det) + ')' : ''}</span><span>${!env.ok ? '—' : (env.costo === 0 ? (r ? 'Sin cargo' : '¡Gratis!') : fmt(env.costo))}</span></div>
     <div class="fila-t total"><span>Total</span><span>${fmt(sub + (env.ok ? env.costo : 0))}</span></div>`;
@@ -966,11 +987,12 @@ const numeroPedido = () => 'AP-' + new Date().toISOString().slice(2, 10).replace
 function armarMensaje(p) {
   const c = p.cliente, L = [`Hola! Quiero confirmar mi pedido ${p.numero} en ${D.config.nombreTienda}.`, ''];
   p.items.forEach(i => L.push(`• ${i.cant} × ${i.nombre} — ${fmt(i.precio * i.cant)}`));
+  if (p.descuento > 0) L.push('', `Promo por cantidad: -${fmt(p.descuento)}`);
   L.push('', `Subtotal: ${fmt(p.subtotal)}`);
   L.push(p.esRetiro ? 'Entrega: retiro en el local' : `Envío (${p.zona}): ${p.envio ? fmt(p.envio) : 'gratis'}`);
-  L.push(`Total: ${fmt(p.total)}`, '', `Nombre: ${c.nombre}`, `Teléfono: ${c.telefono}`);
+  L.push(`Total: ${fmt(p.total)}`, '', `Nombre y apellido: ${c.nombre}`, ...((c.entreCalles || '').startsWith('DNI ') ? [`DNI: ${c.entreCalles.slice(4)}`] : []), `Celular: ${c.telefono}`);
   if (p.clienteEmail) L.push(`Email: ${p.clienteEmail}`);
-  if (!p.esRetiro) L.push(`Dirección: ${c.direccion}${c.entreCalles ? ' (entre ' + c.entreCalles + ')' : ''}, ${c.ciudad}, ${c.provincia}, CP ${c.codigoPostal}`);
+  if (!p.esRetiro) L.push(`Provincia, localidad y CP: ${c.provincia}, ${c.ciudad}, CP ${c.codigoPostal}`, `Sucursal de Correo Argentino: ${(c.direccion || '').replace(/^Sucursal: /, '')}`);
   if (p.notas) L.push(`Notas: ${p.notas}`);
   L.push('', 'Te paso el comprobante de la transferencia por acá.');
   return L.join('\n');
@@ -1001,7 +1023,7 @@ function confirmarPedido() {
   const retiro = esRetiro(), sub = subtotal();
   const cli = {
     nombre: $('#c-nombre').value.trim(), telefono: $('#c-tel').value.trim(),
-    direccion: retiro ? '' : $('#c-dir').value.trim(), entreCalles: retiro ? '' : $('#c-entre').value.trim(),
+    direccion: retiro ? '' : 'Sucursal: ' + $('#c-dir').value.trim(), entreCalles: retiro ? '' : 'DNI ' + $('#c-dni').value.trim(),
     ciudad: retiro ? '' : $('#c-ciudad').value.trim(), provincia: retiro ? '' : $('#c-prov').value,
     codigoPostal: retiro ? '' : $('#c-cp').value.trim()
   };
@@ -1012,7 +1034,7 @@ function confirmarPedido() {
     id: uid(), numero: numeroPedido(), fecha: new Date().toISOString(), clienteId: u.id, clienteEmail: u.email, cliente: cli, notas: $('#c-notas').value.trim(),
     items: ls.map(l => ({ id: l.p.id, nombre: nombreLargo(l.p), precio: l.precio, cant: l.cant })),
     subtotal: sub, envio: env.costo, zona: env.zona.nombre, total: sub + env.costo,
-    estado: 'pendiente', esRetiro: retiro, stockDevuelto: false
+    estado: 'pendiente', esRetiro: retiro, stockDevuelto: false, descuento: descPromo().desc
   };
   pedido.mensajeWhatsapp = armarMensaje(pedido);
   ls.forEach(l => { VEND[l.p.id] = (VEND[l.p.id] || 0) + l.cant; });
@@ -1092,6 +1114,7 @@ function vistaHome() {
           <button type="button" data-act="vista" data-v="detalle" class="${vista === 'detalle' ? 'on' : ''}" aria-label="Vista con foto grande" aria-pressed="${vista === 'detalle'}">${ico('detalle')}</button>
         </div>
       </div>
+      ${textoPromos() ? `<p class="promo-tira"><b>Promos:</b> llevando ${esc(textoPromos())}. Se aplican solas en el carrito.</p>` : ''}
       <div class="res-fila"><p class="ayuda" id="res-n"></p>
         <label class="ayuda por-pag">Mostrar <select id="por-pag" class="inp" aria-label="Perfumes por página">${[50, 100].map(n => `<option value="${n}" ${porPag === n ? 'selected' : ''}>${n}</option>`).join('')}</select> por página</label></div>
       <div class="grid" id="grid" data-vista="${vista}"></div>
@@ -1266,7 +1289,7 @@ function vistaCuenta() {
     <section class="panel"><h2>Mis pedidos</h2>
       ${remoto && !misCargado ? '<p class="suave">Cargando tus pedidos…</p>' : mios.length ? mios.map(p => `<div class="ped">
         <div class="ped-top"><strong>${esc(p.numero)}</strong><span class="est ${esc(p.estado)}">${esc(ESTADOS[p.estado] || p.estado)}</span></div>
-        <p class="suave">${new Date(p.fecha).toLocaleDateString('es-AR')}, ${p.esRetiro ? 'retiro en el local' : 'envío a ' + esc(p.cliente.provincia || '')}</p>
+        <p class="suave">${new Date(p.fecha).toLocaleDateString('es-AR')}, ${p.esRetiro ? 'retiro en el local' : 'envío a sucursal de Correo Argentino (' + esc(p.cliente.provincia || '') + ')'}</p>
         <p style="margin:.4rem 0">${p.items.map(i => `${i.cant} × ${esc(i.nombre)}`).join(', ')}</p>
         <p><strong>${fmt(p.total)}</strong></p>
         ${p.estado === 'pendiente' ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
@@ -1417,14 +1440,14 @@ function vistaAdmin(tab) {
     if (SS.get('ok') !== '1') return adminLogin();
   }
   tab = tab || 'resumen';
-  const tabs = [['resumen', 'Resumen'], ['productos', 'Productos'], ['categorias', 'Categorías'], ['pedidos', 'Pedidos'], ['envios', 'Envíos'], ['config', 'Configuración'], ['datos', 'Datos']];
+  const tabs = [['resumen', 'Resumen'], ['productos', 'Productos'], ['categorias', 'Categorías'], ['pedidos', 'Pedidos'], ['precios', 'Precios'], ['envios', 'Envíos'], ['config', 'Configuración'], ['datos', 'Datos']];
   $('#vista').innerHTML = `<div class="cont adm">
     <div class="adm-top"><strong>Panel de ${esc(D.config.nombreTienda)}</strong><span class="flex1"></span><span id="adm-estado" class="ayuda" role="status" aria-live="polite"></span>
       <a class="btn sec chico" href="#/">Ver tienda</a><button class="btn sec chico" type="button" data-act="adm-salir">Salir</button></div>
     <nav class="adm-tabs" aria-label="Secciones del panel">${tabs.map(([k, t]) => `<a href="#/admin/${k}" class="${tab === k ? 'on' : ''}" ${tab === k ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>
     <div id="adm-cont"></div></div>`;
   pintarEstadoGuardado();
-  ({ resumen: admResumen, productos: admProductos, categorias: admCategorias, pedidos: admPedidos, envios: admEnvios, config: admConfig, datos: admDatos }[tab] || admResumen)();
+  ({ resumen: admResumen, productos: admProductos, categorias: admCategorias, pedidos: admPedidos, precios: admPrecios, envios: admEnvios, config: admConfig, datos: admDatos }[tab] || admResumen)();
 }
 
 async function cargarAdm(tab) {
@@ -1630,7 +1653,7 @@ function formProducto(id) {
 function guardarProducto() {
   const nombre = $('#pf-nombre').value.trim(), precio = nMiles($('#pf-precio'));
   if (!nombre) { toast('Poné un nombre', 'error'); return; }
-  if (precio <= 0 && !(Number(D.config.precioGeneral) > 0)) { toast('Poné un precio (o cargá el precio general en Configuración)', 'error'); return; }
+  if (precio <= 0 && !(Number(D.config.precioGeneral) > 0)) { toast('Poné un precio (o cargá el precio general en Precios)', 'error'); return; }
   const oferta = $('#pf-oferta').checked, pct = Number($('#pf-pct').value) || 0;
   if (oferta && (pct < 1 || pct > 90)) { toast('El descuento tiene que estar entre 1 y 90 %', 'error'); return; }
   let cat = $('#pf-cat').value;
@@ -1696,9 +1719,10 @@ function admPedidos() {
       return `<div class="ped"><div class="ped-top"><strong>${esc(p.numero)}</strong>
         <select class="inp" style="width:auto;min-height:38px" data-ped-est="${esc(p.id)}" aria-label="Estado del pedido ${esc(p.numero)}">${Object.entries(ESTADOS).map(([k, t]) => `<option value="${k}" ${p.estado === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
         <p class="suave">${new Date(p.fecha).toLocaleString('es-AR')}</p>
-        <p style="margin:.4rem 0"><b>${esc(c.nombre)}</b>, ${esc(c.telefono)}${p.clienteEmail ? ', ' + esc(p.clienteEmail) : ''}${p.esRetiro ? ', retira en el local' : `<br>${esc(c.direccion)}${c.entreCalles ? ' (entre ' + esc(c.entreCalles) + ')' : ''}, ${esc(c.ciudad)}, ${esc(c.provincia)}, CP ${esc(c.codigoPostal)}`}</p>
+        <p style="margin:.4rem 0"><b>${esc(c.nombre)}</b>, ${esc(c.telefono)}${p.clienteEmail ? ', ' + esc(p.clienteEmail) : ''}${p.esRetiro ? ', retira en el local' : `<br>${esc(c.direccion)}${c.entreCalles ? ' — ' + (c.entreCalles.startsWith('DNI ') ? esc(c.entreCalles) : '(entre ' + esc(c.entreCalles) + ')') : ''}, ${esc(c.ciudad)}, ${esc(c.provincia)}, CP ${esc(c.codigoPostal)}`}</p>
         <p>${p.items.map(i => `${i.cant} × ${esc(i.nombre)}`).join('<br>')}</p>
         ${p.notas ? `<p class="suave">Notas: ${esc(p.notas)}</p>` : ''}
+        ${p.descuento > 0 ? `<p class="suave">Promo por cantidad: -${fmt(p.descuento)}</p>` : ''}
         <p style="margin-top:.4rem">Envío ${p.envio ? fmt(p.envio) : 'sin cargo'} (${esc(p.zona)}). <b>Total ${fmt(p.total)}</b></p>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
           ${tel ? `<a class="btn chico" target="_blank" rel="noopener" href="${esc(linkWA(tel, `Hola ${c.nombre}! Te escribimos por tu pedido ${p.numero}.`))}">${ico('chat')} WhatsApp al cliente</a>` : ''}
@@ -1745,7 +1769,6 @@ function admConfig() {
     <section class="panel"><h2>Ventas y pagos</h2>
       <div class="campo"><label for="cfg-wa">WhatsApp</label><input class="inp" id="cfg-wa" inputmode="tel" placeholder="Ej: 1130323702 (como lo dirías normalmente)" value="${esc(c.whatsappNumero)}">
         <span class="ayuda">Se guarda como: <b id="cfg-wa-prev">${esc(c.whatsappNumero) || '—'}</b>. Revisá que sea correcto.</span></div>
-      <div class="campo"><label for="cfg-pg">Precio general de los perfumes ($)</label><input class="inp" id="cfg-pg" inputmode="numeric" data-miles placeholder="Ej: 25.000" value="${c.precioGeneral ? Number(c.precioGeneral).toLocaleString('es-AR') : ''}"><span class="ayuda">Es el precio de todos los perfumes que no tengan uno propio (por ejemplo, todos los de 60 ml). Un perfume sin precio y sin precio general no se muestra en la tienda. Si cargás un precio en un perfume, ese manda.</span></div>
       <div class="campo"><label for="cfg-eg">Envío gratis desde ($)</label><input class="inp" id="cfg-eg" inputmode="numeric" data-miles placeholder="80.000" value="${c.envioGratisDesde ? Number(c.envioGratisDesde).toLocaleString('es-AR') : ''}"><span class="ayuda">Dejalo vacío para no ofrecer envío gratis.</span></div>
       <div class="campo"><label for="cfg-alias">Alias o CBU para transferencias</label><input class="inp" id="cfg-alias" value="${esc(c.aliasCbu)}"></div>
       <label class="chk"><input type="checkbox" id="cfg-sinstock" ${c.sinControlStock ? 'checked' : ''}><span><b>Vender sin controlar stock</b><br><span class="ayuda">Todos los perfumes se pueden comprar siempre y nunca se muestran cantidades. Desactivalo para usar el stock de cada producto.</span></span></label>
@@ -1755,6 +1778,20 @@ function admConfig() {
       <div class="campo"><label for="cfg-dir">Dirección</label><input class="inp" id="cfg-dir" value="${esc(c.direccionContacto)}"></div>
       <div class="campo"><label for="cfg-mapa">Link de Google Maps (opcional)</label><input class="inp" id="cfg-mapa" type="url" value="${esc(c.mapaUrl)}"></div></section>
     <button class="btn" type="submit">Guardar configuración</button></form>`;
+}
+
+/* ---------- precios y promos ---------- */
+function admPrecios() {
+  const c = D.config, packs = (Array.isArray(c.promos) ? c.promos : PROMOS_DEF).slice().sort((a, b) => a.cant - b.cant);
+  const filas = Array.from({ length: 6 }, (_, i) => packs[i] || { cant: '', precio: '' });
+  $('#adm-cont').innerHTML = `<form id="form-precios">
+    <section class="panel"><h2>Precio general</h2>
+      <div class="campo"><label for="pr-pg">Precio de 1 perfume ($)</label><input class="inp" id="pr-pg" inputmode="numeric" data-miles placeholder="Ej: 17.000" value="${c.precioGeneral ? Number(c.precioGeneral).toLocaleString('es-AR') : ''}"><span class="ayuda">Es el precio de todos los perfumes que no tengan uno propio. Un perfume sin precio y sin precio general no se muestra en la tienda. Si cargás un precio en un perfume, ese manda.</span></div></section>
+    <section class="panel"><h2>Promos por cantidad</h2>
+      <p class="ayuda" style="margin-bottom:.6rem">Si el cliente lleva esa cantidad de perfumes, el precio de promo se aplica solo en el carrito. Con otras cantidades se arma la mejor combinación (por ejemplo, 13 = 10 + 3). No aplica a perfumes con precio propio o con oferta. Dejá filas vacías si no las necesitás.</p>
+      ${filas.map((f, i) => `<div class="zona"><input class="inp" inputmode="numeric" data-pc="${i}" placeholder="Cantidad" aria-label="Cantidad de perfumes" value="${f.cant}"><input class="inp" inputmode="numeric" data-miles data-pp="${i}" placeholder="Precio total ($)" aria-label="Precio total de la promo" value="${f.precio ? Number(f.precio).toLocaleString('es-AR') : ''}"></div>`).join('')}
+    </section>
+    <button class="btn" type="submit">Guardar precios</button></form>`;
 }
 
 /* ---------- datos y respaldo ---------- */
@@ -2122,6 +2159,14 @@ document.addEventListener('submit', async e => {
       if (D.categorias.some(c => norm(c.nombre) === norm(n))) { toast('Esa categoría ya existe', 'error'); break; }
       D.categorias.push({ id: uid(), nombre: n }); guardar(); admCategorias(); break;
     }
+    case 'form-precios': {
+      const promos = [];
+      $$('[data-pc]').forEach(e => { const n = Math.floor(Number(e.value)), pr = nMiles($('[data-pp="' + e.dataset.pc + '"]')); if (n >= 2 && pr > 0 && !promos.some(x => x.cant === n)) promos.push({ cant: n, precio: pr }); });
+      promos.sort((a, b) => a.cant - b.cant);
+      D.config = { ...D.config, precioGeneral: nMiles($('#pr-pg')), promos };
+      if (guardar()) toast('Precios guardados', 'success'); else toast('No se pudo guardar', 'error');
+      admPrecios(); break;
+    }
     case 'form-envios':
       leerEnvios(); D.envios = JSON.parse(JSON.stringify(adm.env));
       if (guardar()) toast('Envíos guardados', 'success'); else toast('No se pudo guardar', 'error');
@@ -2130,7 +2175,7 @@ document.addEventListener('submit', async e => {
       const mapa = $('#cfg-mapa').value.trim();
       D.config = {
         ...D.config, nombreTienda: $('#cfg-nombre').value.trim() || 'Aroma Propio', bannerTitulo: $('#cfg-bt').value.trim(), bannerSubtitulo: $('#cfg-bs').value.trim(),
-        bannerUrl: $('#cfg-bimg').value, whatsappNumero: normalizarWA($('#cfg-wa').value), envioGratisDesde: nMiles($('#cfg-eg')), precioGeneral: nMiles($('#cfg-pg')), aliasCbu: $('#cfg-alias').value.trim(),
+        bannerUrl: $('#cfg-bimg').value, whatsappNumero: normalizarWA($('#cfg-wa').value), envioGratisDesde: nMiles($('#cfg-eg')), aliasCbu: $('#cfg-alias').value.trim(),
         retiroLocal: $('#cfg-retiro').checked, sinControlStock: $('#cfg-sinstock').checked, emailContacto: $('#cfg-mail').value.trim(), direccionContacto: $('#cfg-dir').value.trim(),
         mapaUrl: /^https?:\/\//i.test(mapa) ? mapa : ''
       };
