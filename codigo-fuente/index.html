@@ -830,6 +830,7 @@ const stockLibre = p => !!(D.config && D.config.sinControlStock) || p.stock == n
 const stockVenta = p => stockLibre(p) ? 99 : stockDe(p);
 const disponible = p => vendible(p) && stockVenta(p) > 0;
 const presentacion = p => [p.ml ? p.ml + ' ml' : '', p.concentracion].filter(Boolean).join(', ');
+const enCat = (p, c) => !!p && (p.categoria === c || (Array.isArray(p.tambien) && p.tambien.includes(c)));
 const sexo = p => ({ Hombre: 'M', Mujer: 'F', Unisex: 'U' })[p && p.categoria] || (p && ['M', 'F', 'U'].includes(p.genero) ? p.genero : '');
 const nombreLargo = p => p.nombre + (p.ml && !/\bml\b/i.test(p.nombre) ? ' ' + p.ml + ' ml' : '') + (sexo(p) ? ' (' + sexo(p) + ')' : '');
 
@@ -1196,7 +1197,7 @@ function pintarChips() {
 }
 /* Marcas disponibles dentro de la categoría elegida (para el selector de marca). */
 function enCategoria(l) {
-  return filtro.cat === 'ofertas' ? l.filter(enOferta) : filtro.cat !== 'todas' ? l.filter(p => p.categoria === filtro.cat) : l;
+  return filtro.cat === 'ofertas' ? l.filter(enOferta) : filtro.cat !== 'todas' ? l.filter(p => enCat(p, filtro.cat)) : l;
 }
 function pintarMarcas() {
   const el = $('#marca'); if (!el) return;
@@ -1217,7 +1218,7 @@ function textoBusqueda(p) {
 function filtrar() {
   let l = D.productos.filter(vendible);
   if (filtro.cat === 'ofertas') l = l.filter(enOferta);
-  else if (filtro.cat !== 'todas') l = l.filter(p => p.categoria === filtro.cat);
+  else if (filtro.cat !== 'todas') l = l.filter(p => enCat(p, filtro.cat));
   if (filtro.marca) l = l.filter(p => (p.marca || '').trim() === filtro.marca);
   const q = norm(filtro.q).trim();
   if (q) {
@@ -1638,7 +1639,7 @@ function admProdLista() {
   if (f === 'ofertas') l = l.filter(enOferta);
   if (f === 'inactivos') l = l.filter(p => !p.activo);
   if (f === 'sinfoto') l = l.filter(p => !(p.imagenes && p.imagenes.length));
-  if (adm.pc !== 'todas') l = l.filter(p => p.categoria === adm.pc);
+  if (adm.pc !== 'todas') l = l.filter(p => enCat(p, adm.pc));
   const cuenta = $('#adm-cuenta'); if (cuenta) cuenta.textContent = `${l.length} de ${D.productos.length} testers`;
   const vista = adm.pv || 'lista';
   if (vista !== 'lista') { $('#adm-lista').innerHTML = l.length ? admVistaOtra(l, vista) : `<div class="vacio">${ico('buscar')}<p>No hay productos con ese filtro.</p></div>`; return; }
@@ -1708,6 +1709,7 @@ function formProducto(id) {
       <div class="campo"><label for="pf-cat">Categoría</label><select class="inp" id="pf-cat"><option value="">Sin categoría</option>${D.categorias.map(c => `<option>${esc(c.nombre)}</option>`).join('')}<option value="__nueva">Crear categoría nueva…</option></select></div>
     </div>
     <div class="campo" id="pf-gen-w"><label for="pf-gen">Para quién es (solo si la categoría no es Mujer, Hombre ni Unisex)</label><select class="inp" id="pf-gen"><option value="">Sin indicar</option><option value="F">F · Mujer</option><option value="M">M · Hombre</option><option value="U">U · Unisex</option></select></div>
+    <div class="campo"><span class="lbl">También mostrar en (por ejemplo "Más vendidos")</span><div id="pf-tambien" style="display:flex;flex-wrap:wrap;gap:.4rem .9rem">${D.categorias.map(c => `<label class="chk" style="margin:0"><input type="checkbox" name="pf-tb" value="${esc(c.nombre)}" ${p && Array.isArray(p.tambien) && p.tambien.includes(c.nombre) ? 'checked' : ''}> <span>${esc(c.nombre)}</span></label>`).join('')}</div></div>
     <div class="campo" id="pf-cat-nueva-w" hidden><label for="pf-cat-nueva">Nombre de la categoría nueva</label><input class="inp" id="pf-cat-nueva" maxlength="40"></div>
     <div class="fila2">
       <div class="campo"><label for="pf-ml">Presentación (ml)</label><input class="inp" id="pf-ml" type="number" min="0" step="1" value="${esc(v('ml', ''))}"></div>
@@ -1748,7 +1750,7 @@ function guardarProducto() {
   }
   const stockTxt = $('#pf-stock').value.trim(), stockEf = Math.max(0, parseInt(stockTxt, 10) || 0);
   const base = {
-    nombre, marca: $('#pf-marca').value.trim(), categoria: cat, genero: ['Hombre', 'Mujer', 'Unisex'].includes(cat) ? '' : $('#pf-gen').value, ml: Number($('#pf-ml').value) || 0,
+    nombre, marca: $('#pf-marca').value.trim(), categoria: cat, tambien: [...document.querySelectorAll('input[name="pf-tb"]:checked')].map(i => i.value).filter(v => v !== cat), genero: ['Hombre', 'Mujer', 'Unisex'].includes(cat) ? '' : $('#pf-gen').value, ml: Number($('#pf-ml').value) || 0,
     concentracion: $('#pf-conc').value, notas: $('#pf-notas').value.trim(), descripcion: $('#pf-desc').value.trim(),
     precio, enOferta: oferta, porcentajeDescuento: oferta ? pct : 0, precioTransferencia: $('#pf-transf').checked,
     activo: $('#pf-activo').checked, imagenes: [...pfImgs]
@@ -1767,7 +1769,7 @@ function guardarProducto() {
 function admCategorias() {
   $('#adm-cont').innerHTML = `<section class="panel"><h2>Categorías</h2>
     ${D.categorias.map((c, i) => {
-      const n = D.productos.filter(p => p.categoria === c.nombre).length;
+      const n = D.productos.filter(p => enCat(p, c.nombre)).length;
       return `<div class="tabla-cat"><div><input class="inp" value="${esc(c.nombre)}" data-catn="${esc(c.id)}" aria-label="Nombre de la categoría" maxlength="40"><span class="ayuda">${n} ${n === 1 ? 'producto' : 'productos'}</span></div>
       <div class="acc-cat"><button class="ib chico" type="button" data-act="cat-mover" data-i="${i}" data-d="-1" aria-label="Subir" ${i === 0 ? 'disabled' : ''}>${ico('arriba')}</button>
       <button class="ib chico" type="button" data-act="cat-mover" data-i="${i}" data-d="1" aria-label="Bajar" ${i === D.categorias.length - 1 ? 'disabled' : ''}>${ico('abajo')}</button>
@@ -2131,9 +2133,9 @@ document.addEventListener('click', async e => {
     }
     case 'cat-borrar': {
       const c = D.categorias.find(x => x.id === id); if (!c) break;
-      const n = D.productos.filter(p => p.categoria === c.nombre).length;
+      const n = D.productos.filter(p => enCat(p, c.nombre)).length;
       if (await confirmar('¿Eliminar la categoría?', n ? `${n} ${n === 1 ? 'producto queda' : 'productos quedan'} sin categoría.` : 'Esta acción no se puede deshacer.', 'Eliminar')) {
-        D.productos.forEach(p => { if (p.categoria === c.nombre) p.categoria = ''; });
+        D.productos.forEach(p => { if (p.categoria === c.nombre) p.categoria = ''; if (Array.isArray(p.tambien)) p.tambien = p.tambien.filter(x => x !== c.nombre); });
         D.categorias = D.categorias.filter(x => x.id !== id);
         if (filtro.cat === c.nombre) filtro.cat = 'todas';
         guardar(); admCategorias();
@@ -2223,7 +2225,7 @@ document.addEventListener('change', async e => {
     const c = D.categorias.find(x => x.id === d.catn), n = t.value.trim();
     if (!c) return;
     if (!n) { t.value = c.nombre; return; }
-    D.productos.forEach(p => { if (p.categoria === c.nombre) p.categoria = n; });
+    D.productos.forEach(p => { if (p.categoria === c.nombre) p.categoria = n; if (Array.isArray(p.tambien)) p.tambien = p.tambien.map(x => x === c.nombre ? n : x); });
     if (filtro.cat === c.nombre) filtro.cat = n;
     c.nombre = n; guardar(); toast('Categoría renombrada', 'success');
   }
