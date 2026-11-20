@@ -418,7 +418,6 @@ html[data-tema="noche"] .bajo{color:var(--sol)}
     <button class="ib" type="button" data-act="menu" aria-label="Abrir menú"><svg class="ico"><use href="#i-menu"/></svg></button>
     <a href="#/" class="logo" id="logo">Aroma Propio</a>
     <span class="flex1"></span>
-    <button class="ib" type="button" id="btn-tema" data-act="tema" aria-label="Cambiar entre tema claro y oscuro"></button>
     <a class="ib" href="#/cuenta" id="btn-user" aria-label="Mi cuenta"><svg class="ico"><use href="#i-usuario"/></svg><span class="dot" id="dot-user" hidden></span></a>
     <a class="ib" href="#/favoritos" aria-label="Favoritos"><svg class="ico"><use href="#i-corazon"/></svg><span class="bdg" id="bdg-fav" hidden>0</span></a>
     <button class="ib" type="button" data-act="carro-abrir" aria-label="Abrir carrito"><svg class="ico"><use href="#i-bolsa"/></svg><span class="bdg" id="bdg-carro" hidden>0</span></button>
@@ -2003,7 +2002,7 @@ function pintarWA() {
 function aplicarTema(t) {
   document.documentElement.setAttribute('data-tema', t);
   const m = $('meta[name="theme-color"]'); if (m) m.setAttribute('content', t === 'noche' ? '#0B0B0C' : '#0B0B0C');
-  $('#btn-tema').innerHTML = ico(t === 'noche' ? 'sol' : 'luna');
+
   LS.set('tema', t);
 }
 function toggleFav(id) {
@@ -2037,7 +2036,6 @@ document.addEventListener('click', async e => {
   const act = el.dataset.act, id = el.dataset.id;
   switch (act) {
     case 'menu': abrirMenu(); break;
-    case 'tema': aplicarTema(document.documentElement.getAttribute('data-tema') === 'noche' ? 'claro' : 'noche'); break;
     case 'carro-abrir': abrirCarro(); if (API()) refrescarTodo().then(() => { depurarCarro(); renderCarro(); pintarBadges(); }); break;
     case 'cerrar': cerrar(el.dataset.panel); break;
     case 'cerrar-todo': cerrarPaneles(); break;
@@ -2358,7 +2356,7 @@ async function init() {
       /* Con copia guardada del catálogo no hace falta esperar al servidor para mostrar la tienda. */
       await Promise.race([sync, new Promise(r => setTimeout(r, revalidar ? 0 : 4000))]);
     }
-    aplicarTema(LS.get('tema', 'claro') === 'noche' ? 'noche' : 'claro');
+    aplicarTema('noche');
     $('#anio').textContent = new Date().getFullYear();
     aplicarMarca(); pintarBadges(); renderCarro();
     window.addEventListener('hashchange', router);
