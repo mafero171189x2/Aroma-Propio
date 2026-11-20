@@ -1362,13 +1362,12 @@ function vistaCuenta() {
       <button class="btn sec chico" type="button" data-act="salir">Cerrar sesión</button></div>
     <section class="panel"><h2>Mis pedidos</h2>
       ${remoto && !misCargado ? '<p class="suave">Cargando tus pedidos…</p>' : mios.length ? mios.map(p => `<div class="ped">
-        <div class="ped-top"><strong>${esc(p.numero)}</strong><span class="est ${esc(p.estado)}">${esc(ESTADOS[p.estado] || p.estado)}</span></div>
+        <div class="ped-top"><strong>${esc(p.numero)}</strong></div>
         <p class="suave">${new Date(p.fecha).toLocaleDateString('es-AR')}, ${p.esRetiro ? 'retiro en el local' : 'envío a sucursal de Correo Argentino (' + esc(p.cliente.provincia || '') + ')'}</p>
         <p style="margin:.4rem 0">${p.items.map(i => `${i.cant} × ${esc(i.nombre)}`).join(', ')}</p>
         <p><strong>${fmt(p.total)}</strong></p>
-        ${p.estado === 'pendiente' ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
-          <a class="btn chico" target="_blank" rel="noopener" href="${esc(linkWA(D.config.whatsappNumero, p.mensajeWhatsapp || armarMensaje(p)))}">${ico('chat')} Coordinar por WhatsApp</a>
-          <button class="btn peligro chico" type="button" data-act="ped-cancelar" data-id="${esc(p.id)}">Cancelar pedido</button></div>` : ''}
+        ${true ? `<div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
+          <a class="btn chico" target="_blank" rel="noopener" href="${esc(linkWA(D.config.whatsappNumero, p.mensajeWhatsapp || armarMensaje(p)))}">${ico('chat')} Coordinar por WhatsApp</a></div>` : ''}
       </div>`).join('') : '<p class="suave">Todavía no hiciste pedidos.</p>'}
     </section>
     <section class="panel"><h2>Mis datos</h2>
@@ -1567,10 +1566,10 @@ function admResumen() {
   const vivos = PEDIDOS.filter(p => p.estado !== 'cancelado');
   const ventasTot = vivos.reduce((a, p) => a + p.subtotal, 0), envTot = vivos.reduce((a, p) => a + p.envio, 0);
   const sinStock = D.productos.filter(p => !stockLibre(p) && stockDe(p) <= 0), bajo = D.productos.filter(p => !stockLibre(p) && stockDe(p) > 0 && stockDe(p) <= 3);
-  const pend = PEDIDOS.filter(p => p.estado === 'pendiente').length;
+  const pend = PEDIDOS.length;
   const card = (t, v, alerta) => `<div class="stat ${alerta ? 'alerta' : ''}"><span>${t}</span><b>${v}</b></div>`;
   $('#adm-cont').innerHTML = `<div class="stats">
-    ${card('Productos', D.productos.length)}${card('Sin stock', sinStock.length, sinStock.length > 0)}${card('Pedidos pendientes', pend, pend > 0)}
+    ${card('Productos', D.productos.length)}${card('Sin stock', sinStock.length, sinStock.length > 0)}${card('Pedidos', pend)}
     ${card('Ventas (productos)', fmt(ventasTot))}${card('Envíos cobrados', fmt(envTot))}</div>
     ${API() ? `<section class="panel"><h2>Avisos de pedidos nuevos</h2>
       <p class="suave" id="push-msg" style="margin-bottom:.8rem">Revisando…</p>
@@ -1793,21 +1792,20 @@ function cambiarEstado(id, nuevo) {
 }
 const textoPedido = p => { const c = p.cliente || {}; return norm([p.numero, c.nombre, c.telefono, String(c.telefono || '').replace(/\D/g, ''), p.clienteEmail, c.direccion, c.entreCalles, c.ciudad, c.provincia, c.codigoPostal, p.notas, p.zona, p.total, (p.items || []).map(i => i.nombre).join(' ')].join(' ')); };
 function admPedidos() {
-  $('#adm-cont').innerHTML = `<div class="toolbar"><label class="busca">${ico('buscar')}<input id="adm-pq" type="search" placeholder="Buscar pedido, nombre, teléfono, DNI…" value="${esc(adm.pqp || '')}" aria-label="Buscar pedidos"></label><select class="inp" id="adm-ped-f" aria-label="Filtrar pedidos por estado"><option value="todos">Todos los estados</option>${Object.entries(ESTADOS).map(([k, t]) => `<option value="${k}" ${adm.ped === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-    ${API() ? `<p class="aviso">${admError ? 'No se pudieron cargar los pedidos: ' + esc(admError) : 'Acá están los pedidos de todos tus clientes. Al cancelar uno, el stock vuelve solo.'}</p>
-    <button class="btn sec chico" type="button" data-act="adm-recargar" style="margin-bottom:.8rem">Actualizar pedidos</button>` : '<p class="aviso">Acá aparecen los pedidos hechos desde este navegador. Los de tus clientes te llegan por WhatsApp; al cancelar un pedido, el stock vuelve solo.</p>'}
+  $('#adm-cont').innerHTML = `<div class="toolbar"><label class="busca">${ico('buscar')}<input id="adm-pq" type="search" placeholder="Buscar pedido, nombre, teléfono, DNI…" value="${esc(adm.pqp || '')}" aria-label="Buscar pedidos"></label></div>
+    ${API() ? `<p class="aviso">${admError ? 'No se pudieron cargar los pedidos: ' + esc(admError) : 'Acá llegan los pedidos de tus clientes. Podés eliminar los que ya no necesites (el stock de esos testers vuelve a estar disponible).'}</p>
+    <button class="btn sec chico" type="button" data-act="adm-recargar" style="margin-bottom:.8rem">Actualizar pedidos</button>` : '<p class="aviso">Acá aparecen los pedidos hechos desde este navegador. Los de tus clientes te llegan por WhatsApp.</p>'}
     <div id="ped-lista"></div>`;
   admPedLista();
 }
 function admPedLista() {
   const q = norm(adm.pqp || '').trim().split(/\s+/).filter(Boolean);
-  const todos = PEDIDOS.filter(p => (adm.ped === 'todos' || p.estado === adm.ped) && (!q.length || (t => q.every(w => t.includes(w)))(textoPedido(p))));
+  const todos = PEDIDOS.filter(p => (!q.length || (t => q.every(w => t.includes(w)))(textoPedido(p))));
   const max = adm.pedMax || 30, l = todos.slice(0, max);
   $('#ped-lista').innerHTML = `${q.length ? `<p class="ayuda" style="margin:0 0 .6rem">${todos.length} pedido${todos.length === 1 ? '' : 's'} encontrado${todos.length === 1 ? '' : 's'}</p>` : ''}
     ${l.length ? l.map(p => {
       const c = p.cliente, tel = normalizarWA(c.telefono);
-      return `<div class="ped"><div class="ped-top"><strong>${esc(p.numero)}</strong>
-        <select class="inp" style="width:auto;min-height:38px" data-ped-est="${esc(p.id)}" aria-label="Estado del pedido ${esc(p.numero)}">${Object.entries(ESTADOS).map(([k, t]) => `<option value="${k}" ${p.estado === k ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      return `<div class="ped"><div class="ped-top"><strong>${esc(p.numero)}</strong></div>
         <p class="suave">${new Date(p.fecha).toLocaleString('es-AR')}</p>
         <p style="margin:.4rem 0"><b>${esc(c.nombre)}</b>, ${esc(c.telefono)}${p.clienteEmail ? ', ' + esc(p.clienteEmail) : ''}${p.esRetiro ? ', retira en el local' : `<br>${esc(c.direccion)}${c.entreCalles ? ' — ' + (c.entreCalles.startsWith('DNI ') ? esc(c.entreCalles) : '(entre ' + esc(c.entreCalles) + ')') : ''}, ${esc(c.ciudad)}, ${esc(c.provincia)}, CP ${esc(c.codigoPostal)}`}</p>
         <p>${p.items.map(i => `${i.cant} × ${esc(i.nombre)}`).join('<br>')}</p>
@@ -1816,8 +1814,8 @@ function admPedLista() {
         <p style="margin-top:.4rem">Envío ${p.envio ? fmt(p.envio) : 'sin cargo'} (${esc(p.zona)}). <b>Total ${fmt(p.total)}</b></p>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
           ${tel ? `<a class="btn chico" target="_blank" rel="noopener" href="${esc(linkWA(tel, `Hola ${c.nombre}! Te escribimos por tu pedido ${p.numero}.`))}">${ico('chat')} WhatsApp al cliente</a>` : ''}
-          ${p.estado === 'cancelado' ? `<button class="btn peligro chico" type="button" data-act="ped-borrar" data-id="${esc(p.id)}">${ico('papelera')} Eliminar</button>` : ''}</div></div>`;
-    }).join('') : `<div class="vacio">${ico('bolsa')}<p>${q.length ? 'No encontramos pedidos con esa búsqueda.' : 'No hay pedidos con ese estado.'}</p></div>`}
+          <button class="btn peligro chico" type="button" data-act="ped-borrar" data-id="${esc(p.id)}">${ico('papelera')} Eliminar</button></div></div>`;
+    }).join('') : `<div class="vacio">${ico('bolsa')}<p>${q.length ? 'No encontramos pedidos con esa búsqueda.' : 'Todavía no hay pedidos.'}</p></div>`}
     ${todos.length > l.length ? `<p class="ayuda" style="text-align:center;margin:.8rem 0 .4rem">Mostrando ${l.length} de ${todos.length} pedidos</p><button class="btn sec block" type="button" data-act="ped-mas">Ver más pedidos</button>` : ''}`;
 }
 
@@ -2132,12 +2130,18 @@ document.addEventListener('click', async e => {
       break;
     }
     case 'ped-borrar':
-      if (await confirmar('¿Eliminar el pedido?', 'Se borra el registro del pedido cancelado.', 'Eliminar')) {
+      if (await confirmar('¿Eliminar el pedido?', 'Se borra el pedido del panel y no se puede recuperar.', 'Eliminar')) {
         if (API()) {
+          const pe = PEDIDOS.find(p => p.id === id);
+          if (pe && pe.estado !== 'cancelado') {
+            const rc = await api('/admin/pedidos/' + encodeURIComponent(id), { metodo: 'PUT', admin: true, cuerpo: { estado: 'cancelado' } });
+            if (!rc.ok) { toast(rc.error, 'error'); break; }
+          }
           const r = await api('/admin/pedidos/' + encodeURIComponent(id), { metodo: 'DELETE', admin: true });
           if (!r.ok) { toast(r.error, 'error'); break; }
           PEDIDOS = PEDIDOS.filter(p => p.id !== id);
-        } else { PEDIDOS = PEDIDOS.filter(p => p.id !== id); LS.set('pedidos', PEDIDOS); }
+        } else { cambiarEstado(id, 'cancelado'); PEDIDOS = PEDIDOS.filter(p => p.id !== id); LS.set('pedidos', PEDIDOS); }
+        await refrescarStock(); toast('Pedido eliminado', 'success');
         admPedidos();
       }
       break;
