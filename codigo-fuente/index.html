@@ -1845,14 +1845,14 @@ function admPedLista() {
   const todos = PEDIDOS.filter(p => pf === 'todos' || (pf === 'env') === (p.estado === 'enviado')).filter(p => (!q.length || (t => q.every(w => t.includes(w)))(textoPedido(p)))).sort((x, y) => new Date(y.fecha) - new Date(x.fecha));
   const tarjeta = p => {
     const c = p.cliente, tel = normalizarWA(c.telefono);
-    return `<div class="ped"><div class="ped-top"><strong>${esc(p.numero)}</strong><span class="suave">${new Date(p.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span></div>
+    const env = p.estado === 'enviado';
+    return `<div class="ped"><div class="ped-top"><span style="display:flex;align-items:center;gap:.7rem"><button type="button" data-act="ped-enviado" data-id="${esc(p.id)}" role="checkbox" aria-checked="${env}" aria-label="Marcar como enviado" style="width:34px;height:34px;flex:none;border-radius:8px;border:2px solid var(--agua);background:${env ? 'var(--agua)' : 'transparent'};color:#0B0B0C;font-size:22px;font-weight:700;line-height:1;cursor:pointer;padding:0">${env ? '✓' : ''}</button><span><strong>${esc(p.numero)}</strong>${env ? '<br><small style="color:var(--agua)">Enviado</small>' : ''}</span></span><span class="suave">${new Date(p.fecha).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}</span></div>
         <p style="margin:.4rem 0"><b>${esc(c.nombre)}</b>, ${esc(c.telefono)}${p.clienteEmail ? ', ' + esc(p.clienteEmail) : ''}${p.esRetiro ? ', retira en el local' : `<br>${esc(c.direccion)}${c.entreCalles ? ' — ' + (c.entreCalles.startsWith('DNI ') ? esc(c.entreCalles) : '(entre ' + esc(c.entreCalles) + ')') : ''}, ${esc(c.ciudad)}, ${esc(c.provincia)}, CP ${esc(c.codigoPostal)}`}</p>
         <p>${p.items.map(i => `${i.cant} × ${esc(i.nombre)}`).join('<br>')}</p>
         ${p.notas ? `<p class="suave">Notas: ${esc(p.notas)}</p>` : ''}
         ${p.descuento > 0 ? `<p class="suave">Promo por cantidad: -${fmt(p.descuento)}</p>` : ''}
         <p style="margin-top:.4rem">Envío ${p.envio ? fmt(p.envio) : 'sin cargo'} (${esc(p.zona)}). <b>Total ${fmt(p.total)}</b></p>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.6rem">
-          <button class="btn chico" type="button" data-act="ped-enviado" data-id="${esc(p.id)}" role="checkbox" aria-checked="${p.estado === 'enviado'}" style="${p.estado === 'enviado' ? 'background:var(--btn-fondo);color:#0B0B0C;border-color:var(--btn-fondo)' : ''}">${p.estado === 'enviado' ? '✓ Enviado' : '☐ Enviado'}</button>
           ${tel ? `<a class="btn chico" target="_blank" rel="noopener" href="${esc(linkWA(tel, `Hola ${c.nombre}! Te escribimos por tu pedido ${p.numero}.`))}">${ico('chat')} WhatsApp al cliente</a>` : ''}
           <button class="btn peligro chico" type="button" data-act="ped-borrar" data-id="${esc(p.id)}">${ico('papelera')} Eliminar</button></div></div>`;
   };
