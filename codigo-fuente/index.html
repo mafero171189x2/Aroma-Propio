@@ -831,7 +831,9 @@ const stockVenta = p => stockLibre(p) ? 99 : stockDe(p);
 const disponible = p => vendible(p) && stockVenta(p) > 0;
 const presentacion = p => [p.ml ? p.ml + ' ml' : '', p.concentracion].filter(Boolean).join(', ');
 const enCat = (p, c) => !!p && (p.categoria === c || (Array.isArray(p.tambien) && p.tambien.includes(c)));
-const sexo = p => ({ Hombre: 'M', Mujer: 'F', Unisex: 'U' })[p && p.categoria] || (p && ['M', 'F', 'U'].includes(p.genero) ? p.genero : '');
+/* La letra sale del nombre de la categoría (Hombre/Masculino, Mujer/Femenino, Unisex) o, si no, del campo "Para quién es". */
+const generoDeCat = c => { const n = norm(c || '').trim(); return /^(hombre|masculino|varon|caballero)/.test(n) ? 'M' : /^(mujer|femenino|dama)/.test(n) ? 'F' : /^unisex/.test(n) ? 'U' : ''; };
+const sexo = p => generoDeCat(p && p.categoria) || (p && ['M', 'F', 'U'].includes(p.genero) ? p.genero : '');
 const nombreLargo = p => p.nombre + (p.ml && !/\bml\b/i.test(p.nombre) ? ' ' + p.ml + ' ml' : '') + (sexo(p) ? ' (' + sexo(p) + ')' : '');
 
 const PALETAS = [['#BDE8E4', '#5CC2BC'], ['#FBE7B5', '#F2B94B'], ['#D5E4FA', '#7FA8E8'], ['#E9D9F5', '#B58BDD'], ['#FAD4CB', '#EE8B77'], ['#D7F0C9', '#84C46B']];
@@ -1708,7 +1710,7 @@ function formProducto(id) {
       <div class="campo"><label for="pf-marca">Marca</label><input class="inp" id="pf-marca" maxlength="60" value="${esc(v('marca'))}"></div>
       <div class="campo"><label for="pf-cat">Categoría</label><select class="inp" id="pf-cat"><option value="">Sin categoría</option>${D.categorias.map(c => `<option>${esc(c.nombre)}</option>`).join('')}<option value="__nueva">Crear categoría nueva…</option></select></div>
     </div>
-    <div class="campo" id="pf-gen-w"><label for="pf-gen">Para quién es (solo si la categoría no es Mujer, Hombre ni Unisex)</label><select class="inp" id="pf-gen"><option value="">Sin indicar</option><option value="F">F · Mujer</option><option value="M">M · Hombre</option><option value="U">U · Unisex</option></select></div>
+    <div class="campo" id="pf-gen-w"><label for="pf-gen">Para quién es (solo si la categoría no es Mujer/Femenino, Hombre/Masculino ni Unisex)</label><select class="inp" id="pf-gen"><option value="">Sin indicar</option><option value="F">F · Mujer</option><option value="M">M · Hombre</option><option value="U">U · Unisex</option></select></div>
     <div class="campo"><span class="lbl">También mostrar en (por ejemplo "Más vendidos")</span><div id="pf-tambien" style="display:flex;flex-wrap:wrap;gap:.4rem .9rem">${D.categorias.map(c => `<label class="chk" style="margin:0"><input type="checkbox" name="pf-tb" value="${esc(c.nombre)}" ${p && Array.isArray(p.tambien) && p.tambien.includes(c.nombre) ? 'checked' : ''}> <span>${esc(c.nombre)}</span></label>`).join('')}</div></div>
     <div class="campo" id="pf-cat-nueva-w" hidden><label for="pf-cat-nueva">Nombre de la categoría nueva</label><input class="inp" id="pf-cat-nueva" maxlength="40"></div>
     <div class="fila2">
@@ -1750,7 +1752,7 @@ function guardarProducto() {
   }
   const stockTxt = $('#pf-stock').value.trim(), stockEf = Math.max(0, parseInt(stockTxt, 10) || 0);
   const base = {
-    nombre, marca: $('#pf-marca').value.trim(), categoria: cat, tambien: [...document.querySelectorAll('input[name="pf-tb"]:checked')].map(i => i.value).filter(v => v !== cat), genero: ['Hombre', 'Mujer', 'Unisex'].includes(cat) ? '' : $('#pf-gen').value, ml: Number($('#pf-ml').value) || 0,
+    nombre, marca: $('#pf-marca').value.trim(), categoria: cat, tambien: [...document.querySelectorAll('input[name="pf-tb"]:checked')].map(i => i.value).filter(v => v !== cat), genero: generoDeCat(cat) ? '' : $('#pf-gen').value, ml: Number($('#pf-ml').value) || 0,
     concentracion: $('#pf-conc').value, notas: $('#pf-notas').value.trim(), descripcion: $('#pf-desc').value.trim(),
     precio, enOferta: oferta, porcentajeDescuento: oferta ? pct : 0, precioTransferencia: $('#pf-transf').checked,
     activo: $('#pf-activo').checked, imagenes: [...pfImgs]
