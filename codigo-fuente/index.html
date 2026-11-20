@@ -6,10 +6,10 @@
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://aroma-propio-api.cotato.workers.dev; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Aroma Propio</title>
-<meta name="description" content="Testers de perfumes de 60 ml con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
+<meta name="description" content="Extractos de perfumes de 60 ml con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Aroma Propio">
-<meta property="og:description" content="Testers de perfumes de 60 ml con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
+<meta property="og:description" content="Extractos de perfumes de 60 ml con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
 <meta property="og:image" content="https://aroma-propio.pages.dev/fotos/001.jpg">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='24' y='4' width='16' height='10' rx='3' fill='%23D4AF37'/%3E%3Crect x='28' y='14' width='8' height='6' fill='%23F7E7A6'/%3E%3Crect x='14' y='20' width='36' height='40' rx='9' fill='%23111111' stroke='%23D4AF37' stroke-width='3'/%3E%3C/svg%3E">
 <meta name="theme-color" content="#0B0B0C">
@@ -381,7 +381,7 @@ html[data-tema="noche"] .bajo{color:var(--sol)}
       <circle class="pl-m pl-m4" cx="94" cy="17" r="4" fill="var(--agua)"/>
     </svg>
     <div class="nombre" id="carga-nombre">Aroma Propio</div>
-    <div class="pl-txt">Cargando testers<span class="pl-pts" aria-hidden="true"><i></i><i></i><i></i></span></div>
+    <div class="pl-txt">Cargando extractos<span class="pl-pts" aria-hidden="true"><i></i><i></i><i></i></span></div>
   </div>
 </div>
 
@@ -870,15 +870,15 @@ function guardarCarro() { LS.set('carrito', CARRITO); pintarBadges(); }
 
 function agregar(id, cant = 1) {
   const p = prod(id);
-  if (!p || !vendible(p)) { toast('Este tester ya no está disponible', 'error'); return false; }
+  if (!p || !vendible(p)) { toast('Este extracto ya no está disponible', 'error'); return false; }
   const disp = stockVenta(p);
-  if (disp <= 0) { toast('Este tester no tiene stock', 'error'); return false; }
+  if (disp <= 0) { toast('Este extracto no tiene stock', 'error'); return false; }
   const it = CARRITO.find(i => i.id === id);
   const actual = it ? it.cant : 0;
   if (actual >= disp) { toast('Ya tenés todas las unidades disponibles en el carrito', 'error'); return false; }
   const suma = Math.min(cant, disp - actual);
   if (it) it.cant += suma; else CARRITO.push({ id, cant: suma });
-  if (suma < cant) toast('No hay más unidades disponibles de este tester', 'error');
+  if (suma < cant) toast('No hay más unidades disponibles de este extracto', 'error');
   guardarCarro();
   renderCarro();
   return true;
@@ -888,7 +888,7 @@ function cambiarCant(id, d) {
   const p = prod(id);
   const n = it.cant + d;
   if (n <= 0) CARRITO = CARRITO.filter(i => i.id !== id);
-  else if (p && n > stockVenta(p)) { toast('No hay más unidades disponibles de este tester', 'error'); return; }
+  else if (p && n > stockVenta(p)) { toast('No hay más unidades disponibles de este extracto', 'error'); return; }
   else it.cant = n;
   guardarCarro(); renderCarro();
 }
@@ -930,7 +930,7 @@ const cerrarPaneles = () => $$('.drawer.abierto').forEach(d => cerrar('#' + d.id
 function abrirMenu() {
   const cats = D.categorias.map(c => c.nombre), u = usuario();
   $('#menu-body').innerHTML = `<nav class="menu-l">
-    <details class="menu-sub"><summary>${ico('bolsa')} Todos los testers<span class="chev" aria-hidden="true">▾</span></summary>
+    <details class="menu-sub"><summary>${ico('bolsa')} Todos los extractos<span class="chev" aria-hidden="true">▾</span></summary>
       <a href="#/">Ver todos</a>${cats.map(c => `<button type="button" data-act="cat" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}
     </details>
     ${D.productos.some(p => vendible(p) && enOferta(p)) ? `<button type="button" data-act="cat" data-cat="ofertas">${ico('etiqueta')} Ofertas</button>` : ''}
@@ -945,7 +945,7 @@ function renderCarro() {
   const ls = lineas(), b = $('#cart-body'), f = $('#cart-foot');
   pintarBadges();
   if (!ls.length) {
-    b.innerHTML = `<div class="vacio">${ico('bolsa')}<p>Tu carrito está vacío</p><button class="btn" type="button" data-act="cerrar" data-panel="#cart">Ver testers</button></div>`;
+    b.innerHTML = `<div class="vacio">${ico('bolsa')}<p>Tu carrito está vacío</p><button class="btn" type="button" data-act="cerrar" data-panel="#cart">Ver extractos</button></div>`;
     f.innerHTML = ''; return;
   }
   b.innerHTML = ls.map(l => `<div class="lin">
@@ -1136,7 +1136,7 @@ async function enviarPedido(ls, retiro, cli, env, notas) {
 }
 
 /* ---------- vistas de la tienda ---------- */
-const vacioHTML = (t, btn = true) => `<div class="cont"><div class="vacio">${ico('buscar')}<p>${esc(t)}</p>${btn ? '<a class="btn" href="#/">Ver testers</a>' : ''}</div></div>`;
+const vacioHTML = (t, btn = true) => `<div class="cont"><div class="vacio">${ico('buscar')}<p>${esc(t)}</p>${btn ? '<a class="btn" href="#/">Ver extractos</a>' : ''}</div></div>`;
 
 function heroArte() {
   return `<svg class="hero-arte" viewBox="0 0 260 330" role="img" aria-label="Frasco de perfume con líquido en movimiento">
@@ -1154,20 +1154,20 @@ function heroArte() {
 
 function vistaHome() {
   if (sinCatalogo && !D.productos.length) {
-    $('#vista').innerHTML = `<div class="cont"><div class="vacio">${ico('buscar')}<p>${sinCatalogo === 'error' ? 'No pudimos cargar los testers. Revisá tu conexión e intentá de nuevo.' : 'Estamos preparando la tienda. Volvé en un rato.'}</p><button class="btn" type="button" data-act="recargar">Reintentar</button></div></div>`;
+    $('#vista').innerHTML = `<div class="cont"><div class="vacio">${ico('buscar')}<p>${sinCatalogo === 'error' ? 'No pudimos cargar los extractos. Revisá tu conexión e intentá de nuevo.' : 'Estamos preparando la tienda. Volvé en un rato.'}</p><button class="btn" type="button" data-act="recargar">Reintentar</button></div></div>`;
     return;
   }
   const c = D.config, foto = !!c.bannerUrl;
   $('#vista').innerHTML = `<div class="cont">
     <section class="hero ${foto ? 'foto' : ''}" id="hero">
-      <div><h1>${esc(c.bannerTitulo)}</h1><p>${esc(c.bannerSubtitulo)}</p><button class="btn" type="button" data-act="ir-catalogo">Ver testers</button></div>
+      <div><h1>${esc(c.bannerTitulo)}</h1><p>${esc(c.bannerSubtitulo)}</p><button class="btn" type="button" data-act="ir-catalogo">Ver extractos</button></div>
       ${foto ? '' : heroArte()}
     </section>
     <section id="catalogo" aria-label="Catálogo">
       ${packsPromo().length ? `<div class="promos"><p class="promos-t">PROMOS</p>${packsPromo().sort((a, b) => a.cant - b.cant).map(x => `<div class="promo-f"><span>${x.cant} UNIDADES</span><b>${fmt(x.precio)}</b></div>`).join('')}<p class="promos-p">Combinalos como quieras · Se aplican solas en el carrito</p></div>` : ''}
       <div class="chips" id="chips" role="group" aria-label="Categorías"></div>
       <div class="toolbar${filtrosAbiertos ? ' abre' : ''}" id="toolbar">
-        <label class="busca">${ico('buscar')}<input id="q" type="search" placeholder="Buscar tester, marca o nota" value="${esc(filtro.q)}" aria-label="Buscar testers"></label>
+        <label class="busca">${ico('buscar')}<input id="q" type="search" placeholder="Buscar extracto, marca o nota" value="${esc(filtro.q)}" aria-label="Buscar extractos"></label>
         <button type="button" class="btn sec chico btn-filtros" data-act="filtros" aria-expanded="${filtrosAbiertos}" aria-controls="marca orden"><span>Filtros</span><span class="n-filtros" id="n-filtros" hidden></span> ${ico('abajo')}</button>
         <select id="marca" class="inp" aria-label="Filtrar por marca"></select>
         <select id="orden" class="inp" aria-label="Ordenar por">
@@ -1179,7 +1179,7 @@ function vistaHome() {
         </div>
       </div>
       <div class="res-fila"><p class="ayuda" id="res-n"></p>
-        <label class="ayuda por-pag">Mostrar <select id="por-pag" class="inp" aria-label="Testers por página">${[50, 100].map(n => `<option value="${n}" ${porPag === n ? 'selected' : ''}>${n}</option>`).join('')}</select><span class="pp-t"> por página</span></label></div>
+        <label class="ayuda por-pag">Mostrar <select id="por-pag" class="inp" aria-label="Extractos por página">${[50, 100].map(n => `<option value="${n}" ${porPag === n ? 'selected' : ''}>${n}</option>`).join('')}</select><span class="pp-t"> por página</span></label></div>
       <div class="grid" id="grid" data-vista="${vista}"></div>
       <nav class="pager" id="pager" aria-label="Páginas"></nav>
     </section>
@@ -1239,9 +1239,9 @@ function pintarGrid(mantener) {
   const total = Math.max(1, Math.ceil(l.length / porPag));
   pag = mantener ? Math.min(Math.max(1, pag), total) : 1;
   const ini = (pag - 1) * porPag, vis = l.slice(ini, ini + porPag);
-  $('#res-n').textContent = l.length ? `${l.length} ${l.length === 1 ? 'tester' : 'testers'}${total > 1 ? ` · mostrando ${ini + 1}–${ini + vis.length}` : ''}` : '';
+  $('#res-n').textContent = l.length ? `${l.length} ${l.length === 1 ? 'extracto' : 'extractos'}${total > 1 ? ` · mostrando ${ini + 1}–${ini + vis.length}` : ''}` : '';
   pintarPager(total);
-  g.innerHTML = l.length ? vis.map(tarjeta).join('') : `<div class="vacio" style="grid-column:1/-1">${ico('buscar')}<p>No encontramos testers con ese filtro.</p><button class="btn sec" type="button" data-act="limpiar">Ver todos</button></div>`;
+  g.innerHTML = l.length ? vis.map(tarjeta).join('') : `<div class="vacio" style="grid-column:1/-1">${ico('buscar')}<p>No encontramos extractos con ese filtro.</p><button class="btn sec" type="button" data-act="limpiar">Ver todos</button></div>`;
 }
 function pintarPager(total) {
   const el = $('#pager'); if (!el) return;
@@ -1278,7 +1278,7 @@ function tarjeta(p) {
 
 function vistaProducto(id) {
   const p = prod(id);
-  if (!p || !vendible(p)) { $('#vista').innerHTML = vacioHTML('Ese tester no está disponible.'); return; }
+  if (!p || !vendible(p)) { $('#vista').innerHTML = vacioHTML('Ese extracto no está disponible.'); return; }
   const st = stockVenta(p), of = enOferta(p), fav = FAVS.includes(p.id);
   const imgs = p.imagenes && p.imagenes.length ? p.imagenes : [null];
   const notas = String(p.notas || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -1321,7 +1321,7 @@ function vistaFavoritos() {
   document.title = 'Favoritos — ' + D.config.nombreTienda;
   $('#vista').innerHTML = `<div class="cont"><h2 style="margin:1.2rem 0">Tus favoritos</h2>${l.length
     ? `<div class="grid" data-vista="compacta">${l.map(tarjeta).join('')}</div>`
-    : `<div class="vacio">${ico('corazon')}<p>Todavía no marcaste ningún tester.</p><a class="btn" href="#/">Ver testers</a></div>`}</div>`;
+    : `<div class="vacio">${ico('corazon')}<p>Todavía no marcaste ningún extracto.</p><a class="btn" href="#/">Ver extractos</a></div>`}</div>`;
 }
 
 function vistaAuth() {
@@ -1474,23 +1474,23 @@ function vistaContacto() {
   document.title = 'Contacto — ' + c.nombreTienda;
   const mapa = c.mapaUrl || (c.direccionContacto ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(c.direccionContacto) : '');
   const items = [
-    c.whatsappNumero ? `<a class="btn" target="_blank" rel="noopener" href="${esc(linkWA(c.whatsappNumero, 'Hola! Quería consultar por un tester.'))}">${ico('chat')} Escribinos por WhatsApp</a>` : '',
+    c.whatsappNumero ? `<a class="btn" target="_blank" rel="noopener" href="${esc(linkWA(c.whatsappNumero, 'Hola! Quería consultar por un extracto.'))}">${ico('chat')} Escribinos por WhatsApp</a>` : '',
     c.emailContacto ? `<p>${ico('mail')} <a href="mailto:${esc(c.emailContacto)}">${esc(c.emailContacto)}</a></p>` : '',
     c.direccionContacto ? `<p>${ico('pin')} ${esc(c.direccionContacto)}</p>` : '',
     mapa ? `<a class="btn sec" target="_blank" rel="noopener" href="${esc(mapa)}">${ico('pin')} Cómo llegar</a>` : ''
   ].filter(Boolean);
   $('#vista').innerHTML = `<div class="cont" style="max-width:760px">
     <h2 style="margin:1.2rem 0">Contacto y preguntas</h2>
-    <section class="panel"><h2>Sobre nuestros testers</h2>
-      <p>Un tester es una versión de 60 ml de un perfume, pensada para tener tu aroma favorito a un precio accesible. Todos los nuestros son <b>testers de 60 ml</b>, con un <b>98% de similitud con los originales</b> y un <b>35% de esencia a base de aceite</b>.</p>
+    <section class="panel"><h2>Sobre nuestros extractos</h2>
+      <p>Un extracto es una versión de 60 ml de un perfume, pensada para tener tu aroma favorito a un precio accesible. Todos los nuestros son <b>extractos de 60 ml</b>, con un <b>98% de similitud con los originales</b> y un <b>35% de esencia a base de aceite</b>.</p>
       <p style="margin-top:.5rem"><b>M</b> = Masculino · <b>F</b> = Femenino · <b>U</b> = Unisex</p></section>
     <section class="panel"><h2>Hablemos</h2><div style="display:grid;gap:.8rem;justify-items:start">${items.length ? items.join('') : '<p class="suave">Todavía no hay datos de contacto cargados.</p>'}</div></section>
     <section class="panel"><h2>Preguntas frecuentes</h2>
-      <details><summary>¿Qué son los testers?</summary><p>Un tester es una versión de 60 ml de un perfume, pensada para tener tu aroma favorito a un precio accesible. Los nuestros tienen un 98% de similitud con los perfumes originales y un 35% de esencia a base de aceite.</p></details>
-      <details><summary>¿Qué significan las letras M, F y U?</summary><p>Indican para quién es el aroma: <b>M</b> = Masculino (Hombre), <b>F</b> = Femenino (Mujer) y <b>U</b> = Unisex (para todos). Las ves junto al nombre dentro de cada tester, y podés filtrar por las pestañas Mujer, Hombre y Unisex.</p></details>
-      <details><summary>¿Cómo compro?</summary><p>Elegí tus testers, agregalos al carrito y completá tus datos. Al confirmar te llevamos a WhatsApp para coordinar el pago por transferencia y enviarnos el comprobante.</p></details>
+      <details><summary>¿Qué son los extractos?</summary><p>Un extracto es una versión de 60 ml de un perfume, pensada para tener tu aroma favorito a un precio accesible. Los nuestros tienen un 98% de similitud con los perfumes originales y un 35% de esencia a base de aceite.</p></details>
+      <details><summary>¿Qué significan las letras M, F y U?</summary><p>Indican para quién es el aroma: <b>M</b> = Masculino (Hombre), <b>F</b> = Femenino (Mujer) y <b>U</b> = Unisex (para todos). Las ves junto al nombre dentro de cada extracto, y podés filtrar por las pestañas Mujer, Hombre y Unisex.</p></details>
+      <details><summary>¿Cómo compro?</summary><p>Elegí tus extractos, agregalos al carrito y completá tus datos. Al confirmar te llevamos a WhatsApp para coordinar el pago por transferencia y enviarnos el comprobante.</p></details>
       <details><summary>¿Cómo se paga?</summary><p>Por transferencia bancaria. Los precios publicados ya son con transferencia. Al confirmar el pedido ves el alias o CBU para transferir.</p></details>
-      <details><summary>¿Cómo se calcula el envío?</summary><p>Enviamos por Correo Argentino y el pedido llega a la sucursal que elijas vos al comprar (nombre y dirección). Si no sabés cuál te queda más cerca, la podés buscar en el <a href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" rel="noopener">buscador de sucursales</a> antes de finalizar.${D.envios.gratisTodo ? ' El envío es gratis a todo el país.' : ' El costo depende de tu provincia y de la cantidad de testers.'} ${!D.envios.gratisTodo && Number(c.envioGratisDesde) > 0 ? `En compras desde ${fmt(c.envioGratisDesde)} el envío es gratis.` : ''} Lo ves antes de confirmar el pedido.</p></details>
+      <details><summary>¿Cómo se calcula el envío?</summary><p>Enviamos por Correo Argentino y el pedido llega a la sucursal que elijas vos al comprar (nombre y dirección). Si no sabés cuál te queda más cerca, la podés buscar en el <a href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" rel="noopener">buscador de sucursales</a> antes de finalizar.${D.envios.gratisTodo ? ' El envío es gratis a todo el país.' : ' El costo depende de tu provincia y de la cantidad de extractos.'} ${!D.envios.gratisTodo && Number(c.envioGratisDesde) > 0 ? `En compras desde ${fmt(c.envioGratisDesde)} el envío es gratis.` : ''} Lo ves antes de confirmar el pedido.</p></details>
       ${c.retiroLocal ? '<details><summary>¿Puedo retirar en persona?</summary><p>Sí. Al finalizar la compra elegí “Retiro en el local” y coordinamos día y horario por WhatsApp.</p></details>' : ''}
       <details><summary>¿Dónde veo mis pedidos?</summary><p>En <a href="#/cuenta">Mi cuenta</a>. Ahí también podés retomar la conversación por WhatsApp si quedó algo por coordinar.</p></details>
     </section></div>`;
@@ -1640,7 +1640,7 @@ function admProdLista() {
   if (f === 'inactivos') l = l.filter(p => !p.activo);
   if (f === 'sinfoto') l = l.filter(p => !(p.imagenes && p.imagenes.length));
   if (adm.pc !== 'todas') l = l.filter(p => enCat(p, adm.pc));
-  const cuenta = $('#adm-cuenta'); if (cuenta) cuenta.textContent = `${l.length} de ${D.productos.length} testers`;
+  const cuenta = $('#adm-cuenta'); if (cuenta) cuenta.textContent = `${l.length} de ${D.productos.length} extractos`;
   const vista = adm.pv || 'lista';
   if (vista !== 'lista') { $('#adm-lista').innerHTML = l.length ? admVistaOtra(l, vista) : `<div class="vacio">${ico('buscar')}<p>No hay productos con ese filtro.</p></div>`; return; }
   $('#adm-lista').innerHTML = l.length ? l.map(p => {
@@ -1702,7 +1702,7 @@ function formProducto(id) {
   const p = id ? prod(id) : null;
   pfEditId = id || null; pfImgs = p ? [...(p.imagenes || [])] : [];
   const v = (k, d = '') => p ? (p[k] == null ? d : p[k]) : d;
-  $('#dlg-body').innerHTML = `<form id="form-prod"><h2>${p ? 'Editar tester' : 'Nuevo tester'}</h2>
+  $('#dlg-body').innerHTML = `<form id="form-prod"><h2>${p ? 'Editar extracto' : 'Nuevo extracto'}</h2>
     <div class="campo"><label for="pf-nombre">Nombre</label><input class="inp" id="pf-nombre" required maxlength="80" value="${esc(v('nombre'))}"></div>
     <div class="fila2">
       <div class="campo"><label for="pf-marca">Marca</label><input class="inp" id="pf-marca" maxlength="60" value="${esc(v('marca'))}"></div>
@@ -1762,7 +1762,7 @@ function guardarProducto() {
     D.productos.unshift({ id: uid(), ...base, stock: stockEf, vendida: 0, fecha: new Date().toISOString() });
   }
   if (!guardar()) { toast('No se pudo guardar: el almacenamiento del navegador está lleno. Probá con menos fotos o con links de imagen.', 'error'); return; }
-  $('#dlg').close(); toast('Tester guardado', 'success'); pintarBadges(); admProductos();
+  $('#dlg').close(); toast('Extracto guardado', 'success'); pintarBadges(); admProductos();
 }
 
 /* ---------- categorías ---------- */
@@ -1797,7 +1797,7 @@ function cambiarEstado(id, nuevo) {
 const textoPedido = p => { const c = p.cliente || {}; return norm([p.numero, c.nombre, c.telefono, String(c.telefono || '').replace(/\D/g, ''), p.clienteEmail, c.direccion, c.entreCalles, c.ciudad, c.provincia, c.codigoPostal, p.notas, p.zona, p.total, (p.items || []).map(i => i.nombre).join(' ')].join(' ')); };
 function admPedidos() {
   $('#adm-cont').innerHTML = `<div class="toolbar"><label class="busca">${ico('buscar')}<input id="adm-pq" type="search" placeholder="Buscar pedido, nombre, teléfono, DNI…" value="${esc(adm.pqp || '')}" aria-label="Buscar pedidos"></label></div>
-    ${API() ? `<p class="aviso">${admError ? 'No se pudieron cargar los pedidos: ' + esc(admError) : 'Acá llegan los pedidos de tus clientes. Podés eliminar los que ya no necesites (el stock de esos testers vuelve a estar disponible).'}</p>
+    ${API() ? `<p class="aviso">${admError ? 'No se pudieron cargar los pedidos: ' + esc(admError) : 'Acá llegan los pedidos de tus clientes. Podés eliminar los que ya no necesites (el stock de esos extractos vuelve a estar disponible).'}</p>
     <button class="btn sec chico" type="button" data-act="adm-recargar" style="margin-bottom:.8rem">Actualizar pedidos</button>` : '<p class="aviso">Acá aparecen los pedidos hechos desde este navegador. Los de tus clientes te llegan por WhatsApp.</p>'}
     <div id="ped-lista"></div>`;
   admPedLista();
@@ -1874,7 +1874,7 @@ function admConfig() {
         <span class="ayuda">Se guarda como: <b id="cfg-wa-prev">${esc(c.whatsappNumero) || '—'}</b>. Revisá que sea correcto.</span></div>
       <div class="campo"><label for="cfg-eg">Envío gratis desde ($)</label><input class="inp" id="cfg-eg" inputmode="numeric" data-miles placeholder="80.000" value="${c.envioGratisDesde ? Number(c.envioGratisDesde).toLocaleString('es-AR') : ''}"><span class="ayuda">Dejalo vacío para no ofrecer envío gratis.</span></div>
       <div class="campo"><label for="cfg-alias">Alias o CBU para transferencias</label><input class="inp" id="cfg-alias" value="${esc(c.aliasCbu)}"></div>
-      <label class="chk"><input type="checkbox" id="cfg-sinstock" ${c.sinControlStock ? 'checked' : ''}><span><b>Vender sin controlar stock</b><br><span class="ayuda">Todos los testers se pueden comprar siempre y nunca se muestran cantidades. Desactivalo para usar el stock de cada producto.</span></span></label>
+      <label class="chk"><input type="checkbox" id="cfg-sinstock" ${c.sinControlStock ? 'checked' : ''}><span><b>Vender sin controlar stock</b><br><span class="ayuda">Todos los extractos se pueden comprar siempre y nunca se muestran cantidades. Desactivalo para usar el stock de cada producto.</span></span></label>
       <label class="chk"><input type="checkbox" id="cfg-retiro" ${c.retiroLocal ? 'checked' : ''}><span><b>Permitir retiro en el local</b><br><span class="ayuda">El cliente elige entre envío o retiro y, si retira, no paga envío.</span></span></label></section>
     <section class="panel"><h2>Contacto</h2>
       <div class="campo"><label for="cfg-mail">Email</label><input class="inp" id="cfg-mail" type="email" value="${esc(c.emailContacto)}"></div>
@@ -1887,13 +1887,13 @@ function admConfig() {
 function admPrecios() {
   const c = D.config, packs = (Array.isArray(c.promos) ? c.promos : PROMOS_DEF).slice().sort((a, b) => a.cant - b.cant);
   const filas = packs.length ? packs : [{ cant: '', precio: '' }];
-  const filaPromo = (i, f) => `<div class="zona" data-fila-promo><input class="inp" inputmode="numeric" data-pc="${i}" placeholder="Cantidad" aria-label="Cantidad de testers" value="${f.cant}"><input class="inp" inputmode="numeric" data-miles data-pp="${i}" placeholder="Precio total ($)" aria-label="Precio total de la promo" value="${f.precio ? Number(f.precio).toLocaleString('es-AR') : ''}"><button class="ib chico" type="button" data-act="promo-borrar" aria-label="Eliminar promo">${ico('papelera')}</button></div>`;
+  const filaPromo = (i, f) => `<div class="zona" data-fila-promo><input class="inp" inputmode="numeric" data-pc="${i}" placeholder="Cantidad" aria-label="Cantidad de extractos" value="${f.cant}"><input class="inp" inputmode="numeric" data-miles data-pp="${i}" placeholder="Precio total ($)" aria-label="Precio total de la promo" value="${f.precio ? Number(f.precio).toLocaleString('es-AR') : ''}"><button class="ib chico" type="button" data-act="promo-borrar" aria-label="Eliminar promo">${ico('papelera')}</button></div>`;
   adm.filaPromo = filaPromo; adm.promoN = filas.length;
   $('#adm-cont').innerHTML = `<form id="form-precios">
     <section class="panel"><h2>Precio general</h2>
-      <div class="campo"><label for="pr-pg">Precio de 1 tester ($)</label><input class="inp" id="pr-pg" inputmode="numeric" data-miles placeholder="Ej: 17.000" value="${c.precioGeneral ? Number(c.precioGeneral).toLocaleString('es-AR') : ''}"><span class="ayuda">Es el precio de todos los testers que no tengan uno propio. Un tester sin precio y sin precio general no se muestra en la tienda. Si cargás un precio en un tester, ese manda.</span></div></section>
+      <div class="campo"><label for="pr-pg">Precio de 1 extracto ($)</label><input class="inp" id="pr-pg" inputmode="numeric" data-miles placeholder="Ej: 17.000" value="${c.precioGeneral ? Number(c.precioGeneral).toLocaleString('es-AR') : ''}"><span class="ayuda">Es el precio de todos los extractos que no tengan uno propio. Un extracto sin precio y sin precio general no se muestra en la tienda. Si cargás un precio en un extracto, ese manda.</span></div></section>
     <section class="panel"><h2>Promos por cantidad</h2>
-      <p class="ayuda" style="margin-bottom:.6rem">Si el cliente lleva esa cantidad de testers, el precio de promo se aplica solo en el carrito. Con otras cantidades se arma la mejor combinación (por ejemplo, 13 = 10 + 3). No aplica a testers con precio propio o con oferta. Podés agregar todas las que quieras y borrar las que no uses (después tocá “Guardar precios”).</p>
+      <p class="ayuda" style="margin-bottom:.6rem">Si el cliente lleva esa cantidad de extractos, el precio de promo se aplica solo en el carrito. Con otras cantidades se arma la mejor combinación (por ejemplo, 13 = 10 + 3). No aplica a extractos con precio propio o con oferta. Podés agregar todas las que quieras y borrar las que no uses (después tocá “Guardar precios”).</p>
       <div id="promo-filas">${filas.map((f, i) => filaPromo(i, f)).join('')}</div>
       <button class="btn sec chico" type="button" data-act="promo-agregar" style="margin-top:.3rem">+ Agregar promo</button>
     </section>
@@ -1940,7 +1940,7 @@ async function importarArchivo(file) {
       (j.categorias || []).forEach(c => { if (c && c.nombre && !D.categorias.some(x => norm(x.nombre) === norm(c.nombre))) D.categorias.push({ id: c.id || uid(), nombre: c.nombre }); });
       j.productos.forEach(np => { const i = D.productos.findIndex(x => x.id === np.id); if (i >= 0) D.productos[i] = { ...D.productos[i], ...np }; else D.productos.push(np); });
       if (!guardar()) throw new Error('no hay espacio en el navegador');
-      pintarBadges(); toast(`Se sumaron ${j.productos.length} testers`, 'success'); admDatos(); return;
+      pintarBadges(); toast(`Se sumaron ${j.productos.length} extractos`, 'success'); admDatos(); return;
     }
     D = normalizarDatos({ ...j, config: j.config || D.config, envios: j.envios || D.envios });
     if (!API()) { VEND = {}; LS.set('vendidos', VEND); }
@@ -1967,7 +1967,7 @@ function pintarVista() {
   else if (r.a === 'admin') vistaAdmin(r.b);
   else vistaHome();
 }
-/* Al volver del detalle de un tester al catálogo, se vuelve a la misma página y posición. */
+/* Al volver del detalle de un extracto al catálogo, se vuelve a la misma página y posición. */
 let aPrev = null, homeY = 0, homePag = 1;
 function router() {
   const r = ruta();
@@ -1999,7 +1999,7 @@ function pintarWA() {
   const a = $('#wa-flot'); if (!a) return;
   const num = D.config.whatsappNumero;
   a.hidden = !num;
-  if (num) a.href = linkWA(num, 'Hola! Quería consultar por un tester.');
+  if (num) a.href = linkWA(num, 'Hola! Quería consultar por un extracto.');
 }
 function aplicarTema(t) {
   document.documentElement.setAttribute('data-tema', t);
@@ -2084,7 +2084,7 @@ document.addEventListener('click', async e => {
     case 'carro-mas': cambiarCant(id, 1); break;
     case 'carro-menos': cambiarCant(id, -1); break;
     case 'carro-quitar': CARRITO = CARRITO.filter(i => i.id !== id); guardarCarro(); renderCarro(); break;
-    case 'carro-vaciar': if (await confirmar('¿Vaciar el carrito?', 'Se van a quitar todos los testers.', 'Vaciar')) { CARRITO = []; guardarCarro(); renderCarro(); } break;
+    case 'carro-vaciar': if (await confirmar('¿Vaciar el carrito?', 'Se van a quitar todos los extractos.', 'Vaciar')) { CARRITO = []; guardarCarro(); renderCarro(); } break;
     case 'checkout': abrirCheckout(); break;
     case 'copiar': copiarTexto(el.dataset.txt); break;
     case 'salir': cerrarSesion(); break;
@@ -2093,7 +2093,7 @@ document.addEventListener('click', async e => {
       const u = usuario(); if (!u) break;
       const pd = API() ? MIS.find(p => p.id === id) : PEDIDOS.find(p => p.id === id && p.clienteId === u.id);
       if (!pd) break;
-      if (await confirmar('¿Cancelar el pedido?', 'El stock de los testers vuelve a estar disponible.', 'Cancelar pedido')) {
+      if (await confirmar('¿Cancelar el pedido?', 'El stock de los extractos vuelve a estar disponible.', 'Cancelar pedido')) {
         if (API()) {
           const r = await api('/pedidos/' + encodeURIComponent(id) + '/cancelar', { metodo: 'POST' });
           if (r.ok) { MIS = MIS.map(p => p.id === id ? r.datos.pedido : p); await refrescarStock(); toast('Pedido cancelado', 'success'); } else toast(r.error, 'error');
@@ -2113,8 +2113,8 @@ document.addEventListener('click', async e => {
     case 'p-editar': formProducto(id); break;
     case 'p-borrar': {
       const p = prod(id); if (!p) break;
-      if (await confirmar('¿Eliminar este tester?', `“${p.nombre}” se borra del catálogo. Esto no se puede deshacer.`, 'Eliminar')) {
-        D.productos = D.productos.filter(x => x.id !== id); guardar(); pintarBadges(); admProdLista(); toast('Tester eliminado', 'success');
+      if (await confirmar('¿Eliminar este extracto?', `“${p.nombre}” se borra del catálogo. Esto no se puede deshacer.`, 'Eliminar')) {
+        D.productos = D.productos.filter(x => x.id !== id); guardar(); pintarBadges(); admProdLista(); toast('Extracto eliminado', 'success');
       }
       break;
     }
@@ -2236,7 +2236,7 @@ document.addEventListener('change', async e => {
   else if (t.id === 'pf-oferta') $('#pf-pct-w').hidden = !t.checked;
   else if (t.id === 'pf-file') {
     for (const f of [...t.files]) {
-      if (pfImgs.length >= 6) { toast('Máximo 6 fotos por tester', 'error'); break; }
+      if (pfImgs.length >= 6) { toast('Máximo 6 fotos por extracto', 'error'); break; }
       try { pfImgs.push(await comprimir(f)); } catch (err) { toast(err.message, 'error'); }
     }
     t.value = ''; renderPfImgs();
