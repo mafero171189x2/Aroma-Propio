@@ -1164,7 +1164,7 @@ function vistaHome() {
       ${foto ? '' : heroArte()}
     </section>
     <section id="catalogo" aria-label="Catálogo">
-      ${packsPromo().length ? `<div class="promos"><p class="promos-t">PROMOS</p>${packsPromo().sort((a, b) => a.cant - b.cant).map(x => `<div class="promo-f"><span>${x.cant} UNIDADES</span><b>${fmt(x.precio)}</b></div>`).join('')}<p class="promos-p">Se aplican solas en el carrito</p></div>` : ''}
+      ${packsPromo().length ? `<div class="promos"><p class="promos-t">PROMOS</p>${packsPromo().sort((a, b) => a.cant - b.cant).map(x => `<div class="promo-f"><span>${x.cant} UNIDADES</span><b>${fmt(x.precio)}</b></div>`).join('')}<p class="promos-p">Combinalos como quieras · Se aplican solas en el carrito</p></div>` : ''}
       <div class="chips" id="chips" role="group" aria-label="Categorías"></div>
       <div class="toolbar${filtrosAbiertos ? ' abre' : ''}" id="toolbar">
         <label class="busca">${ico('buscar')}<input id="q" type="search" placeholder="Buscar tester, marca o nota" value="${esc(filtro.q)}" aria-label="Buscar testers"></label>
