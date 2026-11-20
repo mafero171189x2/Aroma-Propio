@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; img-src data: blob:; base-uri 'none'; form-action 'none'">
+<title>Conversor HEIC</title></head>
+<body>
+<script>
+/* Convierte fotos HEIC/HEIF (iPhone) a JPG. Vive en su propia página aislada porque la librería necesita permisos que la tienda no tiene.
+   La tienda le manda la foto por postMessage y recibe el JPG de vuelta. */
+(function () {
+  var cargada = null;
+  function lib() {
+    if (cargada) return cargada;
+    cargada = new Promise(function (ok, ko) {
+      var s = document.createElement('script'); s.src = 'libheif.min.js';
+      s.onload = function () { Promise.resolve(typeof window.libheif === 'function' ? window.libheif() : window.libheif).then(ok, ko); };
+      s.onerror = function () { cargada = null; ko(new Error('No se pudo cargar el conversor')); };
+      document.head.appendChild(s);
+    });
+    return cargada;
+  }
+  async function convertir(buf, calidad) {
+    var L = await lib(), dec = new L.HeifDecoder(), imgs = dec.decode(buf);
+    if (!imgs || !imgs.length) throw new Error('El archivo HEIC no se pudo leer');
+    var im = imgs[0], w = im.get_width(), h = im.get_height();
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    var x = c.getContext('2d'), d = x.createImageData(w, h);
+    await new Promise(function (ok, ko) { im.display(d, function (r) { r ? ok(r) : ko(new Error('No se pudo decodificar la foto')); }); });
+    x.putImageData(d, 0, 0);
+    return await new Promise(function (ok, ko) { c.toBlob(function (b) { b ? ok(b) : ko(new Error('No se pudo generar el JPG')); }, 'image/jpeg', calidad || 0.85); });
+  }
+  window.addEventListener('message', function (e) {
+    if (e.origin !== location.origin || !e.data || e.data.tipo !== 'heic') return;
+    convertir(e.data.buffer, e.data.calidad).then(
+      function (blob) { e.source.postMessage({ tipo: 'heic-ok', id: e.data.id, blob: blob }, e.origin); },
+      function (err) { e.source.postMessage({ tipo: 'heic-error', id: e.data.id, error: String(err && err.message || err) }, e.origin); }
+    );
+  });
+  parent.postMessage({ tipo: 'heic-listo' }, location.origin);
+})();
+</script>
+</body></html>
