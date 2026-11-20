@@ -1844,7 +1844,7 @@ function admPedidos() {
   admPedLista();
 }
 function admPedLista() {
-  const q = norm(adm.pqp || '').trim().split(/s+/).filter(Boolean);
+  const q = norm(adm.pqp || '').trim().split(/\s+/).filter(Boolean);
   const pf = adm.pf || 'todos', nEnv = PEDIDOS.filter(p => p.estado === 'enviado').length;
   const chips = [['todos', 'Todos', PEDIDOS.length], ['por', 'No enviados', PEDIDOS.length - nEnv], ['env', 'Enviados', nEnv]].map(([k, t, n]) => `<button class="btn chico ${pf === k ? '' : 'sec'}" type="button" data-act="ped-filtro" data-id="${k}" style="${pf === k ? 'background:var(--btn-fondo);color:#0B0B0C;border-color:var(--btn-fondo)' : ''}">${t} ${n}</button>`).join('');
   const todos = PEDIDOS.filter(p => pf === 'todos' || (pf === 'env') === (p.estado === 'enviado')).filter(p => (!q.length || (t => q.every(w => t.includes(w)))(textoPedido(p)))).sort((x, y) => new Date(y.fecha) - new Date(x.fecha));
@@ -2412,7 +2412,7 @@ document.addEventListener('error', e => {
   const t = e.target;
   if (t && t.tagName === 'IMG' && t.dataset.fb) { const f = t.dataset.fb; if (t.dataset.fb2) { t.dataset.fb = t.dataset.fb2; delete t.dataset.fb2; } else delete t.dataset.fb; t.src = f; }
 }, true);
-document.addEventListener('keydown', e => { if (e.key === 'Escape') cerrarPaneles(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { cerrarPaneles(); if ($('#hdr').classList.contains('bq-abierta')) $('[data-act="buscar-cerrar"]').click(); } });
 /* El logo siempre lleva al inicio del catálogo, arriba de todo. */
 $('#logo').addEventListener('click', () => { homeY = 0; if (ruta().a === '') window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); });
 $('#dlg').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
