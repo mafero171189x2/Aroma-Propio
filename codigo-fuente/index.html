@@ -229,6 +229,12 @@ body.en-admin .wa-flot{display:none}
 .menu-l{display:grid;gap:.1rem}
 .menu-l a,.menu-l button{display:flex;align-items:center;gap:.7rem;padding:.75rem .6rem;border-radius:12px;text-decoration:none;border:0;background:transparent;cursor:pointer;text-align:left;width:100%;font-weight:600}
 .menu-l a:hover,.menu-l button:hover{background:var(--elevado)}
+.menu-sub summary{display:flex;align-items:center;gap:.7rem;padding:.75rem .6rem;border-radius:12px;cursor:pointer;font-weight:600;list-style:none}
+.menu-sub summary::-webkit-details-marker{display:none}
+.menu-sub summary:hover{background:var(--elevado)}
+.menu-sub .chev{margin-left:auto;transition:transform .15s}
+.menu-sub[open] .chev{transform:rotate(180deg)}
+.menu-sub a,.menu-sub button{padding-left:2.4rem;font-weight:500}
 .menu-sep{font-size:.85rem;color:var(--suave);font-weight:700;margin:1rem .6rem .3rem}
 .lin{display:grid;grid-template-columns:64px 1fr auto auto;gap:.7rem;align-items:center;padding:.7rem 0;border-bottom:1px solid var(--borde)}
 .sx{display:inline-block;min-width:1.4em;padding:0 .35em;margin-left:.25em;border-radius:6px;background:var(--agua-claro);color:var(--agua-osc);font-size:.75rem;font-weight:800;text-align:center;vertical-align:middle}
@@ -925,13 +931,13 @@ const cerrarPaneles = () => $$('.drawer.abierto').forEach(d => cerrar('#' + d.id
 function abrirMenu() {
   const cats = D.categorias.map(c => c.nombre), u = usuario();
   $('#menu-body').innerHTML = `<nav class="menu-l">
-    <a href="#/">${ico('bolsa')} Todos los testers</a>
+    <details class="menu-sub"><summary>${ico('bolsa')} Todos los testers<span class="chev" aria-hidden="true">▾</span></summary>
+      <a href="#/">Ver todos</a>${cats.map(c => `<button type="button" data-act="cat" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}
+    </details>
     ${D.productos.some(p => vendible(p) && enOferta(p)) ? `<button type="button" data-act="cat" data-cat="ofertas">${ico('etiqueta')} Ofertas</button>` : ''}
-    <a href="#/favoritos">${ico('corazon')} Favoritos</a>
     <a href="#/cuenta">${ico('usuario')} ${u ? 'Mi cuenta y pedidos' : 'Ingresar o crear cuenta'}</a>
     <a href="#/contacto">${ico('mail')} Contacto y preguntas</a>
     ${u ? `<button type="button" data-act="salir">${ico('x')} Cerrar sesión</button>` : ''}
-    ${cats.length ? `<div class="menu-sep">Categorías</div>${cats.map(c => `<button type="button" data-act="cat" data-cat="${esc(c)}">${esc(c)}</button>`).join('')}` : ''}
   </nav>`;
   abrir('#menu');
 }
