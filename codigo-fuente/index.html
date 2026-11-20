@@ -80,7 +80,11 @@ textarea.inp{resize:vertical}
 
 /* Encabezado */
 .hdr{position:sticky;top:0;z-index:50;background:var(--header);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--agua);padding-top:env(safe-area-inset-top,0)}
-.hdr-in{display:flex;align-items:center;gap:.2rem;height:58px}
+.hdr-in{display:flex;align-items:center;gap:.2rem;height:58px;position:relative}
+.hbusca{position:absolute;inset:0;display:flex;align-items:center;gap:.5rem;padding:0 .3rem 0 1rem;background:var(--fondo);border-radius:999px;opacity:0;visibility:hidden;transform:scaleX(.15);transform-origin:right center;transition:transform .22s ease,opacity .18s ease,visibility 0s .22s}
+.hbusca input{flex:1;min-width:0;border:0;background:transparent;outline:none;color:var(--tinta);font:inherit;padding:.5rem 0}
+.hbusca .ico{flex:none;color:var(--agua)}
+.hdr.bq-abierta .hbusca{opacity:1;visibility:visible;transform:none;transition:transform .22s ease,opacity .18s ease,visibility 0s}
 .logo{font-family:'Great Vibes','Fraunces',cursive;font-size:1.9rem;font-weight:400;text-decoration:none;letter-spacing:.01em;margin-left:.2rem;white-space:nowrap;background:var(--oro-grad);-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;line-height:1.2}
 @media(max-width:420px){.logo{font-size:1.6rem}}
 .ib{position:relative;width:42px;height:42px;display:grid;place-items:center;border-radius:50%;border:0;background:transparent;cursor:pointer;color:var(--tinta);text-decoration:none}
@@ -423,9 +427,11 @@ html[data-tema="noche"] .bajo{color:var(--sol)}
     <button class="ib" type="button" data-act="menu" aria-label="Abrir menú"><svg class="ico"><use href="#i-menu"/></svg></button>
     <a href="#/" class="logo" id="logo">Aroma Propio</a>
     <span class="flex1"></span>
+    <button class="ib" type="button" data-act="buscar-abrir" aria-label="Buscar extractos"><svg class="ico"><use href="#i-buscar"/></svg></button>
     <a class="ib" href="#/cuenta" id="btn-user" aria-label="Mi cuenta"><svg class="ico"><use href="#i-usuario"/></svg><span class="dot" id="dot-user" hidden></span></a>
     <a class="ib" href="#/favoritos" aria-label="Favoritos"><svg class="ico"><use href="#i-corazon"/></svg><span class="bdg" id="bdg-fav" hidden>0</span></a>
     <button class="ib" type="button" data-act="carro-abrir" aria-label="Abrir carrito"><svg class="ico"><use href="#i-bolsa"/></svg><span class="bdg" id="bdg-carro" hidden>0</span></button>
+    <div class="hbusca" id="hbusca" aria-hidden="true"><svg class="ico"><use href="#i-buscar"/></svg><input id="q" type="search" placeholder="Buscar extracto, marca o nota" aria-label="Buscar extractos" autocomplete="off" tabindex="-1"><button class="ib" type="button" data-act="buscar-cerrar" aria-label="Cerrar búsqueda" tabindex="-1"><svg class="ico"><use href="#i-x"/></svg></button></div>
   </div>
 </header>
 
@@ -1203,7 +1209,6 @@ function vistaHome() {
       ${packsPromo().length ? `<div class="promos"><p class="promos-t">PROMOS</p>${packsPromo().sort((a, b) => a.cant - b.cant).map(x => `<div class="promo-f"><span>${x.cant} UNIDADES</span><b>${fmt(x.precio)}</b></div>`).join('')}<p class="promos-p">Combinalos como quieras · Se aplican solas en el carrito</p></div>` : ''}
       <div class="chips" id="chips" role="group" aria-label="Categorías"></div>
       <div class="toolbar${filtrosAbiertos ? ' abre' : ''}" id="toolbar">
-        <label class="busca">${ico('buscar')}<input id="q" type="search" placeholder="Buscar extracto, marca o nota" value="${esc(filtro.q)}" aria-label="Buscar extractos"></label>
         <button type="button" class="btn sec chico btn-filtros" data-act="filtros" aria-expanded="${filtrosAbiertos}" aria-controls="marca orden"><span>Filtros</span><span class="n-filtros" id="n-filtros" hidden></span> ${ico('abajo')}</button>
         <select id="marca" class="inp" aria-label="Filtrar por marca"></select>
         <select id="orden" class="inp" aria-label="Ordenar por">
@@ -2077,6 +2082,15 @@ document.addEventListener('click', async e => {
   const act = el.dataset.act, id = el.dataset.id;
   switch (act) {
     case 'menu': abrirMenu(); break;
+    case 'buscar-abrir': {
+      const h = $('#hdr'), b = $('#hbusca'), qi = $('#q'); h.classList.add('bq-abierta'); b.setAttribute('aria-hidden', 'false');
+      b.querySelectorAll('input,button').forEach(x => x.tabIndex = 0); setTimeout(() => qi.focus(), 60); break;
+    }
+    case 'buscar-cerrar': {
+      const h = $('#hdr'), b = $('#hbusca'), qi = $('#q'); h.classList.remove('bq-abierta'); b.setAttribute('aria-hidden', 'true');
+      b.querySelectorAll('input,button').forEach(x => x.tabIndex = -1);
+      if (filtro.q) { filtro.q = ''; qi.value = ''; pintarGrid(); } break;
+    }
     case 'carro-abrir': abrirCarro(); if (API()) refrescarTodo().then(() => { depurarCarro(); renderCarro(); pintarBadges(); }); break;
     case 'cerrar': cerrar(el.dataset.panel); break;
     case 'cerrar-todo': cerrarPaneles(); break;
@@ -2099,7 +2113,7 @@ document.addEventListener('click', async e => {
       $('#grid').dataset.vista = vista;
       $$('.vtog button').forEach(b => { const on = b.dataset.v === vista; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
       break;
-    case 'limpiar': filtro.q = ''; filtro.cat = 'todas'; filtro.marca = ''; vistaHome(); break;
+    case 'limpiar': filtro.q = ''; { const qi = $('#q'); if (qi) qi.value = ''; } filtro.cat = 'todas'; filtro.marca = ''; vistaHome(); break;
     case 'fav': {
       const on = toggleFav(id);
       $$(`[data-act="fav"][data-id="${CSS.escape(id)}"]`).forEach(b => {
@@ -2243,7 +2257,11 @@ document.addEventListener('click', async e => {
 /* ---------- inputs ---------- */
 document.addEventListener('input', e => {
   const t = e.target;
-  if (t.id === 'q') { filtro.q = t.value; pintarGrid(); }
+  if (t.id === 'q') {
+    filtro.q = t.value;
+    if (!$('#grid')) { if (t.value) location.hash = '#/'; }
+    else { pintarGrid(); const c = $('#catalogo'); if (t.value && c && c.getBoundingClientRect().top > 90) c.scrollIntoView({ behavior: 'smooth' }); }
+  }
   else if (t.id === 'adm-q') { adm.pq = t.value; admProdLista(); }
   else if (t.id === 'adm-pq') { adm.pqp = t.value; adm.pedMax = 30; admPedLista(); }
   else if (t.hasAttribute && t.hasAttribute('data-miles')) miles(t);
