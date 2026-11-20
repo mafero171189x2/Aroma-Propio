@@ -958,7 +958,7 @@ function renderCarro() {
   }
   const dp = descPromo().desc, tp = textoPromos();
   f.innerHTML = `${prog}${tp ? `<div class="ayuda">Promo: llevando ${esc(tp)}</div>` : ''}${dp > 0 ? `<div class="fila-t"><span>Promo por cantidad</span><span>-${fmt(dp)}</span></div>` : ''}<div class="fila-t total"><span>Subtotal</span><span>${fmt(sub)}</span></div>
-    <p class="ayuda" style="margin:.3rem 0 .8rem">${D.envios.gratisTodo ? 'Envío gratis a todo el país.' : 'El costo del envío se calcula al finalizar.'} Llega a la sucursal de Correo Argentino que elijas.</p>
+    <p class="ayuda" style="margin:.3rem 0 .8rem">${D.envios.gratisTodo ? 'Envío gratis a todo el país.' : 'El costo del envío se calcula al finalizar.'} ${D.config.retiroLocal ? 'Lo retirás en la sucursal de Correo Argentino que elijas o en el local.' : 'Llega a la sucursal de Correo Argentino que elijas.'}</p>
     <button class="btn block" type="button" data-act="checkout">Finalizar compra</button>
     <button class="btn sec block chico" type="button" data-act="carro-vaciar" style="margin-top:.5rem">Vaciar carrito</button>`;
 }
@@ -986,12 +986,12 @@ function renderCheckout() {
       <label class="on"><input type="radio" name="modo" value="envio" checked> Retiro en sucursal de Correo Argentino</label>
       <label><input type="radio" name="modo" value="retiro"> Retiro en el local</label></div>` : ''}
     <div class="campo"><label for="c-nombre">Nombre y apellido</label><input class="inp" id="c-nombre" required autocomplete="name" value="${esc(c.nombre || '')}"></div>
-    <div class="campo"><label for="c-dni">DNI</label><input class="inp" id="c-dni" required inputmode="numeric" maxlength="10" autocomplete="off" value="${esc((c.entreCalles || '').startsWith('DNI ') ? c.entreCalles.slice(4) : '')}"></div>
-    <div class="campo"><label for="c-tel">Celular</label><input class="inp" id="c-tel" type="tel" required autocomplete="tel" value="${esc(c.telefono || '')}"></div>
+    <div class="campo"><label for="c-dni">DNI</label><input class="inp" id="c-dni" required inputmode="numeric" maxlength="10" pattern="[0-9.]{7,10}" title="Escribí tu DNI, solo números (7 a 8 dígitos)" autocomplete="off" value="${esc((c.entreCalles || '').startsWith('DNI ') ? c.entreCalles.slice(4) : '')}"></div>
+    <div class="campo"><label for="c-tel">Celular</label><input class="inp" id="c-tel" type="tel" required minlength="8" maxlength="20" pattern="[0-9 +\(\)\-]{8,20}" title="Escribí tu celular con característica, por ejemplo 1130323702" autocomplete="tel" value="${esc(c.telefono || '')}"></div>
     <div id="co-envio">
       <div class="fila2">
         <div class="campo"><label for="c-ciudad">Localidad</label><input class="inp" id="c-ciudad" required value="${esc(c.ciudad || '')}"></div>
-        <div class="campo"><label for="c-cp">Código postal</label><input class="inp" id="c-cp" required inputmode="numeric" value="${esc(c.codigoPostal || '')}"></div>
+        <div class="campo"><label for="c-cp">Código postal</label><input class="inp" id="c-cp" required inputmode="numeric" maxlength="8" pattern="[A-Za-z0-9]{4,8}" title="Código postal, por ejemplo 1900" value="${esc(c.codigoPostal || '')}"></div>
       </div>
       <div class="campo"><label for="c-prov">Provincia</label><select class="inp" id="c-prov" required><option value="">Elegí tu provincia</option>${PROVINCIAS.map(p => `<option ${c.provincia === p ? 'selected' : ''}>${esc(p)}</option>`).join('')}</select></div>
       <div class="campo"><label for="c-dir">¿En qué sucursal de Correo Argentino retirás? (nombre y dirección)</label><input class="inp" id="c-dir" required maxlength="95" value="${esc((c.direccion || '').startsWith('Sucursal: ') ? c.direccion.slice(10) : '')}">
@@ -1001,7 +1001,7 @@ function renderCheckout() {
     <div class="campo"><label for="c-notas">Notas del pedido (opcional)</label><textarea class="inp" id="c-notas" rows="2"></textarea></div>
     <div class="caja" id="co-res"></div>
     <div class="aviso err" id="co-aviso" hidden></div>
-    <p class="ayuda" style="margin-bottom:.8rem">Al confirmar, te llevamos a WhatsApp para coordinar el pago por transferencia y enviar el comprobante. El pedido se retira en la sucursal de Correo Argentino que elijas.</p>
+    <p class="ayuda" style="margin-bottom:.8rem">Al confirmar, te llevamos a WhatsApp para coordinar el pago por transferencia y enviar el comprobante. <span id="co-nota-retiro"></span></p>
     <button class="btn block" id="co-ok" type="submit">Confirmar pedido</button>
   </form>`;
   aplicarModo();
@@ -1013,6 +1013,7 @@ function aplicarModo() {
   $('#co-envio').hidden = r;
   ['c-dir', 'c-ciudad', 'c-cp', 'c-prov', 'c-dni'].forEach(id => { const e = $('#' + id); if (e) e.required = !r; });
   $('#co-retiro').hidden = !r;
+  $('#co-nota-retiro').textContent = r ? 'Coordinamos por WhatsApp el día y horario para que retires tu pedido en el local.' : 'El pedido se retira en la sucursal de Correo Argentino que elijas.';
   $('#co-retiro-dir').textContent = D.config.direccionContacto || 'Te pasamos la dirección por WhatsApp.';
   const mp = urlMapa(), lm = $('#co-retiro-mapa');
   if (lm) { lm.hidden = !mp; if (mp) lm.href = mp; }
@@ -1324,7 +1325,7 @@ function vistaAuth() {
     ${reg ? `<form id="form-registro">
       <div class="campo"><label for="r-nombre">Nombre y apellido</label><input class="inp" id="r-nombre" required maxlength="60" autocomplete="name"></div>
       <div class="campo"><label for="r-email">Email</label><input class="inp" id="r-email" type="email" required autocomplete="email" inputmode="email"></div>
-      <div class="campo"><label for="r-tel">Celular</label><input class="inp" id="r-tel" type="tel" required autocomplete="tel"></div>
+      <div class="campo"><label for="r-tel">Celular</label><input class="inp" id="r-tel" type="tel" required minlength="8" maxlength="20" pattern="[0-9 +\(\)\-]{8,20}" title="Escribí tu celular con característica, por ejemplo 1130323702" autocomplete="tel"></div>
       <div class="campo"><label for="r-pass">Contraseña (mínimo 6 caracteres)</label><input class="inp" id="r-pass" type="password" data-pw minlength="6" required autocomplete="new-password"></div>
       <div class="campo"><label for="r-pass2">Repetir contraseña</label><input class="inp" id="r-pass2" type="password" data-pw minlength="6" required autocomplete="new-password"></div>
       <label class="chk"><input type="checkbox" data-verpass> Mostrar contraseñas</label>
