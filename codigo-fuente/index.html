@@ -141,6 +141,16 @@ body.en-admin .hdr,body.en-admin .foot{display:none}
 .busca input{flex:1;border:0;background:transparent;outline:none;min-width:0;padding:.5rem 0}
 .busca:focus-within{border-color:var(--agua);box-shadow:0 0 0 3px var(--agua-claro)}
 .toolbar select{width:auto;border-radius:999px}
+.btn-filtros{display:none}
+.n-filtros{display:inline-grid;place-items:center;min-width:1.3em;height:1.3em;padding:0 .3em;margin-left:.1rem;border-radius:999px;background:var(--btn-fondo);color:var(--btn-texto,#fff);font-size:.72rem;font-weight:800}
+.n-filtros[hidden]{display:none}
+.btn-filtros .ico{transition:transform .2s}
+.toolbar.abre .btn-filtros .ico{transform:rotate(180deg)}
+.wa-flot{position:fixed;right:max(1rem,env(safe-area-inset-right,0));bottom:calc(1rem + env(safe-area-inset-bottom,0));z-index:90;width:54px;height:54px;border-radius:50%;background:#25D366;color:#fff;display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.28);transition:transform .15s}
+.wa-flot[hidden]{display:none}
+.wa-flot:hover{transform:scale(1.06)}
+.wa-flot .ico{width:28px;height:28px}
+body.en-admin .wa-flot{display:none}
 .vtog{display:flex;border:1.5px solid var(--borde);border-radius:999px;overflow:hidden;background:var(--superficie)}
 .vtog button{border:0;background:transparent;width:42px;height:42px;display:grid;place-items:center;cursor:pointer;color:var(--suave)}
 .vtog button.on{background:var(--btn-fondo);color:var(--btn-texto)}
@@ -152,7 +162,7 @@ body.en-admin .hdr,body.en-admin .foot{display:none}
 .promo-f span{font-weight:700;color:var(--tinta)}
 .promo-f b{font-size:1.1rem;color:var(--agua-osc);font-weight:800}
 .promos-p{margin:.5rem 0 0;font-size:.8rem;color:var(--suave)}
-@media(max-width:639px){.toolbar{display:grid;grid-template-columns:1fr 1fr auto;gap:.45rem;margin-bottom:.7rem}.busca{grid-column:1/-1;flex:none;min-height:40px}.busca input{padding:.35rem 0;font-size:.95rem}.toolbar select{width:100%;min-width:0;min-height:40px;padding:.3rem 1.6rem .3rem .7rem;font-size:.9rem;text-overflow:ellipsis}.vtog button{width:38px;height:38px}.chips{padding-bottom:.6rem}.res-fila{margin-top:0;margin-bottom:.4rem;flex-wrap:nowrap}.pp-t{display:none}.por-pag select{min-height:32px}}
+@media(max-width:639px){.toolbar{display:grid;grid-template-columns:1fr 1fr auto;gap:.45rem;margin-bottom:.7rem}.busca{grid-column:1/-1;flex:none;min-height:40px}.btn-filtros{display:inline-flex;grid-row:2;grid-column:1/3;justify-content:center;min-height:40px}.toolbar .vtog{grid-row:2;grid-column:3}.toolbar:not(.abre) #marca,.toolbar:not(.abre) #orden{display:none}.toolbar.abre #marca{grid-row:3;grid-column:1}.toolbar.abre #orden{grid-row:3;grid-column:2/4}.busca input{padding:.35rem 0;font-size:.95rem}.toolbar select{width:100%;min-width:0;min-height:40px;padding:.3rem 1.6rem .3rem .7rem;font-size:.9rem;text-overflow:ellipsis}.vtog button{width:38px;height:38px}.chips{padding-bottom:.6rem}.res-fila{margin-top:0;margin-bottom:.4rem;flex-wrap:nowrap}.pp-t{display:none}.por-pag select{min-height:32px}}
 .res-fila{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
 .por-pag{display:flex;align-items:center;gap:.4rem;margin:0}.por-pag select{width:auto;min-height:36px;padding:.2rem .5rem}
 .pager{display:flex;justify-content:center;align-items:center;gap:.35rem;flex-wrap:wrap;margin:1.4rem 0 .4rem}
@@ -439,6 +449,7 @@ html[data-tema="noche"] .bajo{color:var(--sol)}
 <dialog id="dlg"><div class="dlg-in" id="dlg-body"></div></dialog>
 <dialog id="dlg-conf"><div class="dlg-in"><h2 id="conf-titulo"></h2><p id="conf-texto"></p><div class="dlg-btns"><button class="btn sec" type="button" id="conf-no">Cancelar</button><button class="btn" type="button" id="conf-si">Aceptar</button></div></div></dialog>
 
+<a id="wa-flot" class="wa-flot" target="_blank" rel="noopener" aria-label="Escribinos por WhatsApp" hidden><svg class="ico" aria-hidden="true"><use href="#i-chat"/></svg></a>
 <div id="toasts" aria-live="polite"></div>
 
 <script>
@@ -612,6 +623,11 @@ const usuario = () => API() ? USER : (CUENTAS.find(c => c.id === SESION) || null
 const emailOk = e => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 let vista = LS.get('vista', 'compacta');
 const filtro = { q: '', cat: 'todas', marca: '', orden: 'az' };
+let filtrosAbiertos = false;
+const pintarNFiltros = () => {
+  const n = (filtro.marca ? 1 : 0) + (filtro.orden !== 'az' ? 1 : 0), e = $('#n-filtros');
+  if (e) { e.hidden = !n; e.textContent = n; }
+};
 let pag = 1, porPag = [50, 100].includes(Number(LS.get('porpag', 50))) ? Number(LS.get('porpag', 50)) : 50;
 
 function normalizarDatos(x) {
@@ -809,7 +825,7 @@ const stockLibre = p => !!(D.config && D.config.sinControlStock) || p.stock == n
 const stockVenta = p => stockLibre(p) ? 99 : stockDe(p);
 const disponible = p => vendible(p) && stockVenta(p) > 0;
 const presentacion = p => [p.ml ? p.ml + ' ml' : '', p.concentracion].filter(Boolean).join(', ');
-const sexo = p => ({ Hombre: 'M', Mujer: 'F' })[p && p.categoria] || '';
+const sexo = p => ({ Hombre: 'M', Mujer: 'F', Unisex: 'U' })[p && p.categoria] || '';
 const nombreLargo = p => p.nombre + (p.ml && !/\bml\b/i.test(p.nombre) ? ' ' + p.ml + ' ml' : '') + (sexo(p) ? ' (' + sexo(p) + ')' : '');
 
 const PALETAS = [['#BDE8E4', '#5CC2BC'], ['#FBE7B5', '#F2B94B'], ['#D5E4FA', '#7FA8E8'], ['#E9D9F5', '#B58BDD'], ['#FAD4CB', '#EE8B77'], ['#D7F0C9', '#84C46B']];
@@ -1139,8 +1155,9 @@ function vistaHome() {
     <section id="catalogo" aria-label="Catálogo">
       ${packsPromo().length ? `<div class="promos"><p class="promos-t">PROMOS</p>${packsPromo().sort((a, b) => a.cant - b.cant).map(x => `<div class="promo-f"><span>${x.cant} UNIDADES</span><b>${fmt(x.precio)}</b></div>`).join('')}<p class="promos-p">Se aplican solas en el carrito</p></div>` : ''}
       <div class="chips" id="chips" role="group" aria-label="Categorías"></div>
-      <div class="toolbar">
+      <div class="toolbar${filtrosAbiertos ? ' abre' : ''}" id="toolbar">
         <label class="busca">${ico('buscar')}<input id="q" type="search" placeholder="Buscar tester, marca o nota" value="${esc(filtro.q)}" aria-label="Buscar testers"></label>
+        <button type="button" class="btn sec chico btn-filtros" data-act="filtros" aria-expanded="${filtrosAbiertos}" aria-controls="marca orden"><span>Filtros</span><span class="n-filtros" id="n-filtros" hidden></span> ${ico('abajo')}</button>
         <select id="marca" class="inp" aria-label="Filtrar por marca"></select>
         <select id="orden" class="inp" aria-label="Ordenar por">
           ${[['az', 'A a Z'], ['za', 'Z a A'], ['precio-asc', 'Menor precio'], ['precio-desc', 'Mayor precio']].map(([v, t]) => `<option value="${v}" ${filtro.orden === v ? 'selected' : ''}>${t}</option>`).join('')}
@@ -1157,7 +1174,7 @@ function vistaHome() {
     </section>
   </div>`;
   if (foto) $('#hero').style.backgroundImage = 'url(' + JSON.stringify(c.bannerUrl) + ')';
-  pintarChips(); pintarGrid();
+  pintarChips(); pintarGrid(); pintarNFiltros();
 }
 function pintarChips() {
   const el = $('#chips'); if (!el) return;
@@ -1905,6 +1922,7 @@ const ruta = () => { const [a, b] = location.hash.replace(/^#\/?/, '').split('/'
 function pintarVista() {
   const r = ruta();
   document.body.classList.toggle('en-admin', r.a === 'admin');
+  pintarWA();
   document.title = D.config.nombreTienda;
   if (r.a === 'producto') vistaProducto(r.b);
   else if (r.a === 'favoritos') vistaFavoritos();
@@ -1939,6 +1957,13 @@ function aplicarMarca() {
   const n = D.config.nombreTienda || 'Aroma Propio';
   ['#logo', '#foot-nombre', '#menu-nombre', '#carga-nombre'].forEach(s => { const e = $(s); if (e) e.textContent = n; });
   document.title = n;
+  pintarWA();
+}
+function pintarWA() {
+  const a = $('#wa-flot'); if (!a) return;
+  const num = D.config.whatsappNumero;
+  a.hidden = !num;
+  if (num) a.href = linkWA(num, 'Hola! Quería consultar por un tester.');
 }
 function aplicarTema(t) {
   document.documentElement.setAttribute('data-tema', t);
@@ -1990,7 +2015,11 @@ document.addEventListener('click', async e => {
     case 'push-on': pushActivar(); break;
     case 'push-off': pushDesactivar(); break;
     case 'push-probar': { const r = await api('/admin/push/prueba', { metodo: 'POST', admin: true }); toast(r.ok ? 'Aviso enviado: debería llegarte en unos segundos' : r.error, r.ok ? 'success' : 'error'); break; }
-    case 'ir-catalogo': $('#catalogo')?.scrollIntoView({ behavior: 'smooth' }); break;
+    case 'filtros':
+      filtrosAbiertos = !filtrosAbiertos;
+      $('#toolbar').classList.toggle('abre', filtrosAbiertos); el.setAttribute('aria-expanded', filtrosAbiertos);
+      break;
+    case 'ir-catalogo':$('#catalogo')?.scrollIntoView({ behavior: 'smooth' }); break;
     case 'vista':
       vista = el.dataset.v; LS.set('vista', vista);
       $('#grid').dataset.vista = vista;
@@ -2129,8 +2158,8 @@ document.addEventListener('input', e => {
 document.addEventListener('change', async e => {
   const t = e.target, d = t.dataset || {};
   if (t.id === 'por-pag') { porPag = Number(t.value) || 50; LS.set('porpag', porPag); pintarGrid(); }
-  else if (t.id === 'orden') { filtro.orden = t.value; pintarGrid(); }
-  else if (t.id === 'marca') { filtro.marca = t.value; pintarGrid(); }
+  else if (t.id === 'orden') { filtro.orden = t.value; pintarNFiltros(); pintarGrid(); }
+  else if (t.id === 'marca') { filtro.marca = t.value; pintarNFiltros(); pintarGrid(); }
   else if (t.id === 'adm-f') { adm.pf = t.value; admProdLista(); }
   else if (t.id === 'adm-c') { adm.pc = t.value; admProdLista(); }
   else if (t.id === 'adm-v') { adm.pv = t.value; LS.set('adm_vista', adm.pv); admProdLista(); }
