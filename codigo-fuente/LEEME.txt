@@ -1,0 +1,6 @@
+FLUJO PARA PUBLICAR
+1) El archivo que se EDITA es siempre ..\index.html (legible). Nunca editar publicar\index.html.
+2) Para generar la version ofuscada:   node herramientas/ofuscar.js   (crea publicar\index.html)
+3) A GitHub se sube publicar\index.html (renombrado como index.html en la raiz del repo).
+4) Si falta la carpeta node_modules:   cd herramientas ; npm install
+Resguardo del original: carpeta Desktop\Aroma-Propio-RESGUARDO (copiar ahi cada vez que haya cambios importantes).

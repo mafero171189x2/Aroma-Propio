@@ -1,0 +1,20 @@
+{
+  "name": "aroma-propio-api",
+  "main": "worker.js",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "preview_urls": false,
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "aroma-propio",
+      "database_id": "6fd5ef94-440f-43cb-b645-a775f6e688c6"
+    }
+  ],
+
+  "vars": {
+    "ALLOWED_ORIGIN": "https://aroma-propio.pages.dev,https://mafero171189x2.github.io",
+    "CATALOGO_URL": "https://mafero171189x2.github.io/Aroma-Propio/datos.json"
+  }
+}
