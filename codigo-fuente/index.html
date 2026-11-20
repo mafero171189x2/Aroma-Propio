@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://aroma-propio-api.cotato.workers.dev; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' https: data: blob:; connect-src 'self' https://aroma-propio-api.cotato.workers.dev; worker-src 'self'; frame-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <title>Aroma Propio</title>
 <meta name="description" content="Extractos de perfumes de 60 ml con envío a todo el país. Elegí tu aroma y pagá por transferencia.">
@@ -526,7 +526,36 @@ function descargar(nombre, obj) {
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
 }
 
-function comprimir(file, max = 900, q = 0.72) {
+/* Fotos HEIC/HEIF (las del iPhone): el navegador no las lee. Se convierten a JPG en una página aparte (heic-conversor.html) que se carga solo cuando hace falta. */
+const esHeic = f => /hei[cf]/i.test(f.type || '') || /.(heic|heif)$/i.test(f.name || '');
+let _heicFrame = null, _heicN = 0;
+const convertirHeic = file => new Promise(async (ok, ko) => {
+  try {
+    if (!_heicFrame) {
+      _heicFrame = new Promise((lis, err) => {
+        const f = document.createElement('iframe'); f.hidden = true; f.setAttribute('aria-hidden', 'true'); f.src = 'heic-conversor.html';
+        const al = e => { if (e.origin === location.origin && e.data && e.data.tipo === 'heic-listo') { removeEventListener('message', al); lis(f); } };
+        addEventListener('message', al); document.body.appendChild(f);
+        setTimeout(() => { removeEventListener('message', al); _heicFrame = null; f.remove(); err(new Error('timeout')); }, 15000);
+      });
+    }
+    const f = await _heicFrame, id = ++_heicN, buffer = await file.arrayBuffer();
+    const al = e => {
+      if (e.origin !== location.origin || !e.data || e.data.id !== id) return;
+      removeEventListener('message', al);
+      e.data.tipo === 'heic-ok' ? ok(e.data.blob) : ko(new Error(e.data.error || 'error'));
+    };
+    addEventListener('message', al);
+    f.contentWindow.postMessage({ tipo: 'heic', id, buffer, calidad: 0.85 }, location.origin, [buffer]);
+  } catch (e) { ko(e); }
+});
+async function comprimir(file, max = 900, q = 0.72) {
+  if (esHeic(file)) {
+    try { file = await convertirHeic(file); } catch (e) { throw new Error('No se pudo convertir la foto HEIC. Probá con otra o pasala a JPG.'); }
+  }
+  return comprimirImg(file, max, q);
+}
+function comprimirImg(file, max, q) {
   return new Promise((res, rej) => {
     const fr = new FileReader();
     fr.onerror = () => rej(new Error('No se pudo leer la imagen'));
@@ -1729,7 +1758,7 @@ function formProducto(id) {
     <label class="chk"><input type="checkbox" id="pf-transf" ${!p || p.precioTransferencia !== false ? 'checked' : ''}> Mostrar “Precio con transferencia”</label>
     <label class="chk"><input type="checkbox" id="pf-activo" ${!p || p.activo ? 'checked' : ''}> Visible en la tienda</label>
     <div class="campo"><span class="lbl">Fotos (la primera es la principal)</span><div class="imgs" id="pf-imgs"></div>
-      <div class="fila-img"><label class="btn sec chico" style="cursor:pointer">${ico('subir')} Subir fotos<input id="pf-file" type="file" accept="image/*" multiple hidden></label>
+      <div class="fila-img"><label class="btn sec chico" style="cursor:pointer">${ico('subir')} Subir fotos<input id="pf-file" type="file" accept="image/*,.heic,.heif" multiple hidden></label>
       <input class="inp" id="pf-url" placeholder="o pegá el link de una imagen"><button class="btn sec chico" type="button" data-act="img-url">Agregar</button></div>
       <p class="ayuda">${API() ? 'Las fotos subidas se guardan en el servidor y se ven en la tienda al instante.' : 'Las fotos subidas se guardan en este navegador y ocupan lugar. Si vas a cargar muchas, conviene usar links.'}</p></div>
     <div class="dlg-btns"><button class="btn sec" type="button" data-act="dlg-cerrar">Cancelar</button><button class="btn" type="submit">Guardar</button></div></form>`;
@@ -1869,7 +1898,7 @@ function admConfig() {
       <div class="campo"><span class="lbl">Foto del banner (opcional)</span>
         <img class="img-prev" id="cfg-prev" alt="Vista previa del banner" ${c.bannerUrl ? `src="${esc(c.bannerUrl)}"` : 'hidden'}>
         <input type="hidden" id="cfg-bimg" value="${esc(c.bannerUrl)}">
-        <div class="fila-img"><label class="btn sec chico" style="cursor:pointer">${ico('subir')} Subir foto<input id="cfg-bfile" type="file" accept="image/*" hidden></label>
+        <div class="fila-img"><label class="btn sec chico" style="cursor:pointer">${ico('subir')} Subir foto<input id="cfg-bfile" type="file" accept="image/*,.heic,.heif" hidden></label>
         <input class="inp" id="cfg-burl" placeholder="o pegá un link" value="${c.bannerUrl && !c.bannerUrl.startsWith('data:') ? esc(c.bannerUrl) : ''}"><button class="btn sec chico" type="button" data-act="banner-quitar">Quitar</button></div>
         <p class="ayuda">Sin foto se muestra el frasco animado.</p></div></section>
     <section class="panel"><h2>Ventas y pagos</h2>
