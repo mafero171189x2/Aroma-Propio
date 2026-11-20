@@ -156,7 +156,7 @@ body.en-admin .wa-flot{display:none}
 .vtog button.on{background:var(--btn-fondo);color:var(--btn-texto)}
 
 /* Grilla y tarjetas */
-.promos{background:var(--superficie);border:1.5px solid var(--agua);border-radius:16px;padding:.8rem 1rem;margin:.2rem 0 1.1rem}
+.promos{background:var(--superficie);border:1.5px solid var(--agua);border-radius:16px;padding:.8rem 1rem;margin:.2rem 0 1.1rem;max-width:440px}
 .promos-t{margin:0 0 .3rem;font-size:.75rem;letter-spacing:.1em;font-weight:700;color:var(--agua-osc)}
 .promo-f{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--borde)}
 .promo-f span{font-weight:700;color:var(--tinta)}
@@ -958,8 +958,8 @@ function renderCarro() {
     prog = `<div class="ayuda">${sub >= min ? '¡Tu envío es gratis!' : `Te faltan ${fmt(min - sub)} para el envío gratis`}</div><div class="barra"><i style="width:${pct}%"></i></div>`;
   }
   const dp = descPromo().desc, tp = textoPromos();
-  f.innerHTML = `${prog}${tp ? `<div class="ayuda">Promo: llevando ${esc(tp)}</div>` : ''}${dp > 0 ? `<div class="fila-t"><span>Promo por cantidad</span><span>-${fmt(dp)}</span></div>` : ''}<div class="fila-t total"><span>Subtotal</span><span>${fmt(sub)}</span></div>
-    <p class="ayuda" style="margin:.3rem 0 .8rem">${D.envios.gratisTodo ? 'Envío gratis a todo el país.' : 'El costo del envío se calcula al finalizar.'} ${D.config.retiroLocal ? 'Lo retirás en la sucursal de Correo Argentino que elijas o en el local.' : 'Llega a la sucursal de Correo Argentino que elijas.'}</p>
+  f.innerHTML = `${prog}${dp > 0 ? `<div class="fila-t"><span>Promo por cantidad</span><span>-${fmt(dp)}</span></div>` : ''}<div class="fila-t total"><span>Subtotal</span><span>${fmt(sub)}</span></div>
+    <p class="ayuda" style="margin:.3rem 0 .8rem">${D.envios.gratisTodo ? '' : 'El costo del envío se calcula al finalizar. '}${D.config.retiroLocal ? 'Lo retirás en la sucursal de Correo Argentino que elijas o en el local.' : 'Llega a la sucursal de Correo Argentino que elijas.'}</p>
     <button class="btn block" type="button" data-act="checkout">Finalizar compra</button>
     <button class="btn sec block chico" type="button" data-act="carro-vaciar" style="margin-top:.5rem">Vaciar carrito</button>`;
 }
@@ -1041,7 +1041,9 @@ const numeroPedido = () => 'AP-' + new Date().toISOString().slice(2, 10).replace
 function armarMensaje(p) {
   const c = p.cliente, L = [`Hola! Quiero confirmar mi pedido *${p.numero}* en ${D.config.nombreTienda}.`, '', '*PEDIDO*'];
   p.items.forEach(i => L.push(`• ${i.cant} × ${i.nombre} — ${fmt(i.precio * i.cant)}`));
-  L.push('', p.esRetiro ? 'Entrega: retiro en el local' : (p.envio ? `Envío: ${fmt(p.envio)}` : 'Envío gratis'));
+  L.push('');
+  if (p.descuento > 0) L.push(`Descuento por cantidad: -${fmt(p.descuento)}`);
+  L.push(p.esRetiro ? 'Entrega: retiro en el local' : (p.envio ? `Envío: ${fmt(p.envio)}` : 'Envío gratis'));
   L.push(`*TOTAL: ${fmt(p.total)}*`, '', '*DATOS PERSONALES*', `Nombre y apellido: ${c.nombre}`);
   if ((c.entreCalles || '').startsWith('DNI ')) L.push(`DNI: ${c.entreCalles.slice(4)}`);
   L.push(`Celular: ${c.telefono}`);
@@ -1257,7 +1259,7 @@ function tarjeta(p) {
     <div class="pc-img" data-act="abrir" data-id="${id}" aria-hidden="true">${imgMini(p)}</div>
     <div class="pc-body">
       <div class="pc-marca">${esc(p.marca || '')}</div>
-      <h3 class="pc-nombre"><a href="#/producto/${id}">${esc(p.nombre)}</a></h3>
+      <h3 class="pc-nombre"><a href="#/producto/${id}">${esc(p.nombre)}${sexo(p) ? ` <span class="sx">${sexo(p)}</span>` : ''}</a></h3>
       <div class="pc-pres">${esc(presentacion(p))}</div>
       <div class="pc-precios"><span class="precio">${fmt(precioFinal(p))}</span>${of ? `<span class="precio-old">${fmt(precioBase(p))}</span>` : ''}</div>
       ${p.precioTransferencia !== false ? '<div class="transf">Precio con transferencia</div>' : ''}
@@ -1290,7 +1292,7 @@ function vistaProducto(id) {
       </div>
       <div>
         <p class="suave">${esc(p.marca || '')}</p>
-        <h1>${esc(p.nombre)}</h1>
+        <h1>${esc(p.nombre)}${sexo(p) ? ` <span class="sx" title="${esc(p.categoria)}">${sexo(p)}</span>` : ''}</h1>
         ${presentacion(p) ? `<p class="suave">${esc(presentacion(p))}</p>` : ''}
         <div class="pc-precios" style="margin-top:.8rem"><span class="precio">${fmt(precioFinal(p))}</span>${of ? `<span class="precio-old">${fmt(precioBase(p))}</span><span class="tag-of" style="padding:.1rem .5rem;border-radius:999px;font-weight:800;font-size:.8rem">-${p.porcentajeDescuento}%</span>` : ''}</div>
         ${p.precioTransferencia !== false ? '<div class="transf">Precio con transferencia</div>' : ''}
