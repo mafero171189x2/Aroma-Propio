@@ -167,7 +167,7 @@ async function registro(req, env) {
   const nombre = txt(b.nombre, 60), email = txt(b.email, 120).toLowerCase(), telefono = txt(b.telefono, 30), pass = String(b.password || "");
   if (!nombre) throw new Fallo(400, "Escrib\xED tu nombre.");
   if (!emailOk(email)) throw new Fallo(400, "Revis\xE1 el email: parece incompleto.");
-  if (telefono.length < 6) throw new Fallo(400, "Escrib\xED un tel\xE9fono v\xE1lido.");
+  if (!/^[0-9 +()\-]{8,20}$/.test(telefono)) throw new Fallo(400, "Escrib\xED un celular v\xE1lido, con caracter\xEDstica.");
   if (pass.length < 6 || pass.length > 100) throw new Fallo(400, "La contrase\xF1a necesita entre 6 y 100 caracteres.");
   const ya = await env.DB.prepare("SELECT id FROM usuarios WHERE email = ?1").bind(email).first();
   if (ya) throw new Fallo(409, "Ya hay una cuenta con ese email. Ingres\xE1 con tu contrase\xF1a.");
@@ -202,6 +202,10 @@ __name(login, "login");
 async function actualizarYo(req, env, u) {
   const b = await leerJson(req);
   const nombre = txt(b.nombre, 60) || u.nombre;
+  const tel2 = txt(b.telefono, 30), cp2 = txt(b.codigoPostal, 12), dni2 = txt(b.entreCalles, 120);
+  if (tel2 && !/^[0-9 +()\-]{8,20}$/.test(tel2)) throw new Fallo(400, "Escrib\xED un celular v\xE1lido, con caracter\xEDstica.");
+  if (cp2 && !/^[A-Za-z0-9]{4,8}$/.test(cp2)) throw new Fallo(400, "El c\xF3digo postal no es v\xE1lido.");
+  if (dni2.startsWith("DNI ") && !/^DNI [0-9.]{7,10}$/.test(dni2)) throw new Fallo(400, "El DNI no es v\xE1lido: solo n\xFAmeros.");
   await env.DB.prepare("UPDATE usuarios SET nombre = ?2, telefono = ?3, direccion = ?4, entre_calles = ?5, ciudad = ?6, codigo_postal = ?7, provincia = ?8 WHERE id = ?1").bind(u.id, nombre, txt(b.telefono, 30), txt(b.direccion, 120), txt(b.entreCalles, 120), txt(b.ciudad, 80), txt(b.codigoPostal, 12), txt(b.provincia, 60)).run();
   const n = await env.DB.prepare("SELECT * FROM usuarios WHERE id = ?1").bind(u.id).first();
   return { usuario: usuarioPublico(n) };
@@ -331,6 +335,9 @@ async function crearPedido(req, env, u) {
   };
   if (!cliente.nombre || !cliente.telefono) throw new Fallo(400, "Complet\xE1 tu nombre y tel\xE9fono.");
   if (!esRetiro && !(cliente.direccion && cliente.ciudad && cliente.provincia && cliente.codigoPostal)) throw new Fallo(400, "Complet\xE1 la direcci\xF3n de env\xEDo.");
+  if (!/^[0-9 +()\-]{8,20}$/.test(cliente.telefono)) throw new Fallo(400, "Escrib\xED un celular v\xE1lido, con caracter\xEDstica.");
+  if (!esRetiro && !/^[A-Za-z0-9]{4,8}$/.test(cliente.codigoPostal)) throw new Fallo(400, "El c\xF3digo postal no es v\xE1lido.");
+  if (!esRetiro && !/^DNI [0-9.]{7,10}$/.test(cliente.entreCalles)) throw new Fallo(400, "El DNI no es v\xE1lido: solo n\xFAmeros.");
   const envio = esRetiro ? 0 : Math.round(Number(b.envio));
   let zonaNombre = esRetiro ? "Retiro en el local" : txt(b.zona, 60);
   if (!(envio >= 0 && envio <= 5e6)) throw new Fallo(400, "El costo de env\xEDo no es v\xE1lido.");

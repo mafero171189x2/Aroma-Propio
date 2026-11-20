@@ -1552,7 +1552,7 @@ function adminLogin() {
     <h2>Panel de administración</h2>
     <div class="campo" style="margin-top:1rem"><label for="a-pass">Contraseña</label><input class="inp" id="a-pass" type="password" required autocomplete="current-password"></div>
     <button class="btn block" type="submit">Entrar</button>
-    <p class="ayuda" style="margin-top:.8rem">${API() ? 'Es la contraseña que cargaste en el servidor (ADMIN_PASSWORD). Si querés cambiarla, se cambia en Cloudflare.' : 'Si te olvidaste la contraseña, borrá los datos del sitio desde la configuración del navegador.'}</p></form></div>`;
+    <p class="ayuda" style="margin-top:.8rem">${API() ? 'Ingresá con la contraseña del panel.' :'Si te olvidaste la contraseña, borrá los datos del sitio desde la configuración del navegador.'}</p></form></div>`;
 }
 
 /* ---------- resumen ---------- */
@@ -1625,8 +1625,8 @@ function admProductos() {
 function admProdLista() {
   const q = norm(adm.pq), f = adm.pf;
   let l = D.productos.filter(p => !q || norm([p.nombre, p.marca, p.categoria, p.notas, p.descripcion].join(' ')).includes(q));
-  if (f === 'sinstock') l = l.filter(p => stockDe(p) <= 0);
-  if (f === 'bajo') l = l.filter(p => stockDe(p) > 0 && stockDe(p) <= 3);
+  if (f === 'sinstock') l = l.filter(p => !stockLibre(p) && stockDe(p) <= 0);
+  if (f === 'bajo') l = l.filter(p => !stockLibre(p) && stockDe(p) > 0 && stockDe(p) <= 3);
   if (f === 'ofertas') l = l.filter(enOferta);
   if (f === 'inactivos') l = l.filter(p => !p.activo);
   if (f === 'sinfoto') l = l.filter(p => !(p.imagenes && p.imagenes.length));
@@ -1642,7 +1642,7 @@ function admProdLista() {
         <span class="precio" style="font-size:1rem">${fmt(precioFinal(p))}</span>${enOferta(p) ? ` <span class="precio-old">${fmt(precioBase(p))}</span>` : ''}${Number(p.precio) > 0 ? '' : ' <span class="ayuda">(precio general)</span>'}
         ${stockLibre(p) ? '' : st <= 0 ? ' <span class="sin">Sin stock</span>' : (st <= 3 ? ' <span class="bajo">Stock bajo</span>' : '')}</div>
       <div class="acc" style="grid-column:1/-1">
-        <div class="stk"><button type="button" data-act="stk" data-id="${id}" data-d="-1" aria-label="Restar stock">${ico('menos')}</button><input class="inp" type="number" min="0" value="${st}" data-stk="${id}" aria-label="Stock de ${esc(p.nombre)}"><button type="button" data-act="stk" data-id="${id}" data-d="1" aria-label="Sumar stock">${ico('mas')}</button></div>
+        ${stockLibre(p) ? '<span class="ayuda">Sin control de stock</span>' : `<div class="stk"><button type="button" data-act="stk" data-id="${id}" data-d="-1" aria-label="Restar stock">${ico('menos')}</button><input class="inp" type="number" min="0" value="${st}" data-stk="${id}" aria-label="Stock de ${esc(p.nombre)}"><button type="button" data-act="stk" data-id="${id}" data-d="1" aria-label="Sumar stock">${ico('mas')}</button></div>`}
         <label class="chk" style="margin:0"><input type="checkbox" data-activo="${id}" ${p.activo ? 'checked' : ''}> Visible</label>
         <span class="flex1"></span>
         <button class="btn sec chico" type="button" data-act="p-editar" data-id="${id}">${ico('editar')} Editar</button>
@@ -1708,7 +1708,7 @@ function formProducto(id) {
     <div class="campo"><label for="pf-desc">Descripción</label><textarea class="inp" id="pf-desc" rows="4" maxlength="1200">${esc(v('descripcion'))}</textarea></div>
     <div class="fila2">
       <div class="campo"><label for="pf-precio">Precio ($)</label><input class="inp" id="pf-precio" inputmode="numeric" data-miles ${Number(D.config.precioGeneral) > 0 ? 'placeholder="Vacío = precio general"' : 'required'} value="${p && Number(p.precio) > 0 ? Number(p.precio).toLocaleString('es-AR') : ''}"></div>
-      <div class="campo"><label for="pf-stock">Stock</label><input class="inp" id="pf-stock" type="number" min="0" step="1" ${D.config.sinControlStock ? 'placeholder="Opcional"' : 'required'} value="${p ? stockDe(p) : ''}"></div>
+      <div class="campo"><label for="pf-stock">Stock</label><input class="inp" id="pf-stock" type="number" min="0" step="1" ${D.config.sinControlStock ? 'placeholder="Sin control de stock"' : 'required'} value="${p && !D.config.sinControlStock ? stockDe(p) : ''}"></div>
     </div>
     <label class="chk"><input type="checkbox" id="pf-oferta" ${p && p.enOferta ? 'checked' : ''}> En oferta</label>
     <div class="campo" id="pf-pct-w" ${p && p.enOferta ? '' : 'hidden'}><label for="pf-pct">Descuento (%)</label><input class="inp" id="pf-pct" type="number" min="1" max="90" value="${esc(p && p.enOferta ? p.porcentajeDescuento : '')}"></div>
@@ -1717,7 +1717,7 @@ function formProducto(id) {
     <div class="campo"><span class="lbl">Fotos (la primera es la principal)</span><div class="imgs" id="pf-imgs"></div>
       <div class="fila-img"><label class="btn sec chico" style="cursor:pointer">${ico('subir')} Subir fotos<input id="pf-file" type="file" accept="image/*" multiple hidden></label>
       <input class="inp" id="pf-url" placeholder="o pegá el link de una imagen"><button class="btn sec chico" type="button" data-act="img-url">Agregar</button></div>
-      <p class="ayuda">Las fotos subidas se guardan en este navegador y ocupan lugar. Si vas a cargar muchas, conviene usar links.</p></div>
+      <p class="ayuda">${API() ? 'Las fotos subidas se guardan en el servidor y se ven en la tienda al instante.' : 'Las fotos subidas se guardan en este navegador y ocupan lugar. Si vas a cargar muchas, conviene usar links.'}</p></div>
     <div class="dlg-btns"><button class="btn sec" type="button" data-act="dlg-cerrar">Cancelar</button><button class="btn" type="submit">Guardar</button></div></form>`;
   if (p) { $('#pf-cat').value = p.categoria || ''; $('#pf-conc').value = p.concentracion || ''; }
   renderPfImgs();
@@ -1737,7 +1737,7 @@ function guardarProducto() {
       if (ya) cat = ya.nombre; else D.categorias.push({ id: uid(), nombre: cat });
     }
   }
-  const stockEf = Math.max(0, parseInt($('#pf-stock').value, 10) || 0);
+  const stockTxt = $('#pf-stock').value.trim(), stockEf = Math.max(0, parseInt(stockTxt, 10) || 0);
   const base = {
     nombre, marca: $('#pf-marca').value.trim(), categoria: cat, ml: Number($('#pf-ml').value) || 0,
     concentracion: $('#pf-conc').value, notas: $('#pf-notas').value.trim(), descripcion: $('#pf-desc').value.trim(),
@@ -1745,7 +1745,8 @@ function guardarProducto() {
     activo: $('#pf-activo').checked, imagenes: [...pfImgs]
   };
   if (pfEditId) {
-    const p = prod(pfEditId); Object.assign(p, base); p.stock = stockEf + (VEND[p.id] || 0);
+    /* Si el campo de stock queda vacío (tienda sin control de stock) no se toca el stock que ya tenía. */
+    const p = prod(pfEditId); Object.assign(p, base); if (stockTxt !== '') p.stock = stockEf + (VEND[p.id] || 0);
   } else {
     D.productos.unshift({ id: uid(), ...base, stock: stockEf, vendida: 0, fecha: new Date().toISOString() });
   }
@@ -1792,8 +1793,9 @@ function admPedidos() {
 }
 function admPedLista() {
   const q = norm(adm.pqp || '').trim().split(/\s+/).filter(Boolean);
-  const l = PEDIDOS.filter(p => (adm.ped === 'todos' || p.estado === adm.ped) && (!q.length || (t => q.every(w => t.includes(w)))(textoPedido(p))));
-  $('#ped-lista').innerHTML = `${q.length ? `<p class="ayuda" style="margin:0 0 .6rem">${l.length} pedido${l.length === 1 ? '' : 's'} encontrado${l.length === 1 ? '' : 's'}</p>` : ''}
+  const todos = PEDIDOS.filter(p => (adm.ped === 'todos' || p.estado === adm.ped) && (!q.length || (t => q.every(w => t.includes(w)))(textoPedido(p))));
+  const max = adm.pedMax || 30, l = todos.slice(0, max);
+  $('#ped-lista').innerHTML = `${q.length ? `<p class="ayuda" style="margin:0 0 .6rem">${todos.length} pedido${todos.length === 1 ? '' : 's'} encontrado${todos.length === 1 ? '' : 's'}</p>` : ''}
     ${l.length ? l.map(p => {
       const c = p.cliente, tel = normalizarWA(c.telefono);
       return `<div class="ped"><div class="ped-top"><strong>${esc(p.numero)}</strong>
@@ -1807,7 +1809,8 @@ function admPedLista() {
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-top:.6rem">
           ${tel ? `<a class="btn chico" target="_blank" rel="noopener" href="${esc(linkWA(tel, `Hola ${c.nombre}! Te escribimos por tu pedido ${p.numero}.`))}">${ico('chat')} WhatsApp al cliente</a>` : ''}
           ${p.estado === 'cancelado' ? `<button class="btn peligro chico" type="button" data-act="ped-borrar" data-id="${esc(p.id)}">${ico('papelera')} Eliminar</button>` : ''}</div></div>`;
-    }).join('') : `<div class="vacio">${ico('bolsa')}<p>${q.length ? 'No encontramos pedidos con esa búsqueda.' : 'No hay pedidos con ese estado.'}</p></div>`}`;
+    }).join('') : `<div class="vacio">${ico('bolsa')}<p>${q.length ? 'No encontramos pedidos con esa búsqueda.' : 'No hay pedidos con ese estado.'}</p></div>`}
+    ${todos.length > l.length ? `<p class="ayuda" style="text-align:center;margin:.8rem 0 .4rem">Mostrando ${l.length} de ${todos.length} pedidos</p><button class="btn sec block" type="button" data-act="ped-mas">Ver más pedidos</button>` : ''}`;
 }
 
 /* ---------- envíos ---------- */
@@ -1896,7 +1899,8 @@ function admDatos() {
     <section class="panel"><h2>Limpieza</h2>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap">
         ${API() ? '' : '<button class="btn peligro" type="button" data-act="borrar-pedidos">Borrar todos los pedidos</button>'}
-        <button class="btn peligro" type="button" data-act="reset-tienda">Volver a los datos de ejemplo</button></div></section>`;
+        ${API() ? '' : '<button class="btn peligro" type="button" data-act="reset-tienda">Volver a los datos de ejemplo</button>'}</div>
+      ${API() ? '<p class="ayuda" style="margin-top:.6rem">Con el servidor conectado no hay acciones de borrado masivo en este panel, para evitar perder el catálogo por error.</p>' : ''}</section>`;
 }
 async function importarArchivo(file) {
   try {
@@ -2082,6 +2086,7 @@ document.addEventListener('click', async e => {
     case 'recargar': location.reload(); break;
     case 'reintentar-push': sucio = true; pushCatalogo(); break;
     case 'adm-recargar': admCargado = false; vistaAdmin('pedidos'); break;
+    case 'ped-mas': adm.pedMax = (adm.pedMax || 30) + 30; admPedLista(); break;
     case 'p-nuevo': formProducto(); break;
     case 'p-editar': formProducto(id); break;
     case 'p-borrar': {
@@ -2154,7 +2159,7 @@ document.addEventListener('input', e => {
   const t = e.target;
   if (t.id === 'q') { filtro.q = t.value; pintarGrid(); }
   else if (t.id === 'adm-q') { adm.pq = t.value; admProdLista(); }
-  else if (t.id === 'adm-pq') { adm.pqp = t.value; admPedLista(); }
+  else if (t.id === 'adm-pq') { adm.pqp = t.value; adm.pedMax = 30; admPedLista(); }
   else if (t.hasAttribute && t.hasAttribute('data-miles')) miles(t);
   else if (t.id === 'cfg-wa') $('#cfg-wa-prev').textContent = normalizarWA(t.value) || '—';
   else if (t.id === 'cfg-burl') {
@@ -2172,7 +2177,7 @@ document.addEventListener('change', async e => {
   else if (t.id === 'adm-f') { adm.pf = t.value; admProdLista(); }
   else if (t.id === 'adm-c') { adm.pc = t.value; admProdLista(); }
   else if (t.id === 'adm-v') { adm.pv = t.value; LS.set('adm_vista', adm.pv); admProdLista(); }
-  else if (t.id === 'adm-ped-f') { adm.ped = t.value; admPedidos(); }
+  else if (t.id === 'adm-ped-f') { adm.ped = t.value; adm.pedMax = 30; admPedidos(); }
   else if (d.stk) { setStock(d.stk, t.value); admProdLista(); }
   else if (d.activo) { const p = prod(d.activo); if (p) { p.activo = t.checked; guardar(); admProdLista(); } }
   else if (d.pedEst) {
