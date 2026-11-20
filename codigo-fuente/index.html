@@ -1270,7 +1270,11 @@ function vistaProducto(id) {
   const st = stockVenta(p), of = enOferta(p), fav = FAVS.includes(p.id);
   const imgs = p.imagenes && p.imagenes.length ? p.imagenes : [null];
   const notas = String(p.notas || '').split(',').map(s => s.trim()).filter(Boolean);
-  const rel = D.productos.filter(x => x.id !== p.id && x.activo && disponible(x) && p.categoria && x.categoria === p.categoria).slice(0, 4);
+  /* Sugerencias al azar de la misma categoría (hasta 2 de la misma marca primero), distintas en cada visita. */
+  const mezclar = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const cand = D.productos.filter(x => x.id !== p.id && x.activo && disponible(x) && p.categoria && x.categoria === p.categoria);
+  const mismaMarca = mezclar(cand.filter(x => p.marca && x.marca === p.marca)).slice(0, 2);
+  const rel = mismaMarca.concat(mezclar(cand.filter(x => !mismaMarca.includes(x))).slice(0, 4 - mismaMarca.length));
   document.title = p.nombre + ' — ' + D.config.nombreTienda;
   $('#vista').innerHTML = `<div class="cont">
     <a class="atras" href="#/">${ico('atras')} Volver a la tienda</a>
