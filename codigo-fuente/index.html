@@ -835,7 +835,7 @@ const stockLibre = p => !!(D.config && D.config.sinControlStock) || p.stock == n
 const stockVenta = p => stockLibre(p) ? 99 : stockDe(p);
 const disponible = p => vendible(p) && stockVenta(p) > 0;
 const presentacion = p => [p.ml ? p.ml + ' ml' : '', p.concentracion].filter(Boolean).join(', ');
-const sexo = p => ({ Hombre: 'M', Mujer: 'F', Unisex: 'U' })[p && p.categoria] || '';
+const sexo = p => ({ Hombre: 'M', Mujer: 'F', Unisex: 'U' })[p && p.categoria] || (p && ['M', 'F', 'U'].includes(p.genero) ? p.genero : '');
 const nombreLargo = p => p.nombre + (p.ml && !/\bml\b/i.test(p.nombre) ? ' ' + p.ml + ' ml' : '') + (sexo(p) ? ' (' + sexo(p) + ')' : '');
 
 const PALETAS = [['#BDE8E4', '#5CC2BC'], ['#FBE7B5', '#F2B94B'], ['#D5E4FA', '#7FA8E8'], ['#E9D9F5', '#B58BDD'], ['#FAD4CB', '#EE8B77'], ['#D7F0C9', '#84C46B']];
@@ -1713,6 +1713,7 @@ function formProducto(id) {
       <div class="campo"><label for="pf-marca">Marca</label><input class="inp" id="pf-marca" maxlength="60" value="${esc(v('marca'))}"></div>
       <div class="campo"><label for="pf-cat">Categoría</label><select class="inp" id="pf-cat"><option value="">Sin categoría</option>${D.categorias.map(c => `<option>${esc(c.nombre)}</option>`).join('')}<option value="__nueva">Crear categoría nueva…</option></select></div>
     </div>
+    <div class="campo" id="pf-gen-w"><label for="pf-gen">Para quién es (solo si la categoría no es Mujer, Hombre ni Unisex)</label><select class="inp" id="pf-gen"><option value="">Sin indicar</option><option value="F">F · Mujer</option><option value="M">M · Hombre</option><option value="U">U · Unisex</option></select></div>
     <div class="campo" id="pf-cat-nueva-w" hidden><label for="pf-cat-nueva">Nombre de la categoría nueva</label><input class="inp" id="pf-cat-nueva" maxlength="40"></div>
     <div class="fila2">
       <div class="campo"><label for="pf-ml">Presentación (ml)</label><input class="inp" id="pf-ml" type="number" min="0" step="1" value="${esc(v('ml', ''))}"></div>
@@ -1733,7 +1734,7 @@ function formProducto(id) {
       <input class="inp" id="pf-url" placeholder="o pegá el link de una imagen"><button class="btn sec chico" type="button" data-act="img-url">Agregar</button></div>
       <p class="ayuda">${API() ? 'Las fotos subidas se guardan en el servidor y se ven en la tienda al instante.' : 'Las fotos subidas se guardan en este navegador y ocupan lugar. Si vas a cargar muchas, conviene usar links.'}</p></div>
     <div class="dlg-btns"><button class="btn sec" type="button" data-act="dlg-cerrar">Cancelar</button><button class="btn" type="submit">Guardar</button></div></form>`;
-  if (p) { $('#pf-cat').value = p.categoria || ''; $('#pf-conc').value = p.concentracion || ''; }
+  if (p) { $('#pf-cat').value = p.categoria || ''; $('#pf-conc').value = p.concentracion || ''; $('#pf-gen').value = ['M', 'F', 'U'].includes(p.genero) ? p.genero : ''; }
   renderPfImgs();
   $('#dlg').showModal();
 }
@@ -1753,7 +1754,7 @@ function guardarProducto() {
   }
   const stockTxt = $('#pf-stock').value.trim(), stockEf = Math.max(0, parseInt(stockTxt, 10) || 0);
   const base = {
-    nombre, marca: $('#pf-marca').value.trim(), categoria: cat, ml: Number($('#pf-ml').value) || 0,
+    nombre, marca: $('#pf-marca').value.trim(), categoria: cat, genero: ['Hombre', 'Mujer', 'Unisex'].includes(cat) ? '' : $('#pf-gen').value, ml: Number($('#pf-ml').value) || 0,
     concentracion: $('#pf-conc').value, notas: $('#pf-notas').value.trim(), descripcion: $('#pf-desc').value.trim(),
     precio, enOferta: oferta, porcentajeDescuento: oferta ? pct : 0, precioTransferencia: $('#pf-transf').checked,
     activo: $('#pf-activo').checked, imagenes: [...pfImgs]
