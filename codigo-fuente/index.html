@@ -1472,7 +1472,8 @@ function vistaContacto() {
   const items = [
     c.whatsappNumero ? `<a class="btn" target="_blank" rel="noopener" href="${esc(linkWA(c.whatsappNumero, 'Hola! Quería consultar por un tester.'))}">${ico('chat')} Escribinos por WhatsApp</a>` : '',
     c.emailContacto ? `<p>${ico('mail')} <a href="mailto:${esc(c.emailContacto)}">${esc(c.emailContacto)}</a></p>` : '',
-    c.direccionContacto ? `<p>${ico('pin')} ${esc(c.direccionContacto)}${mapa ? ` — <a href="${esc(mapa)}" target="_blank" rel="noopener">ver en el mapa</a>` : ''}</p>` : ''
+    c.direccionContacto ? `<p>${ico('pin')} ${esc(c.direccionContacto)}</p>` : '',
+    mapa ? `<a class="btn sec" target="_blank" rel="noopener" href="${esc(mapa)}">${ico('pin')} Cómo llegar</a>` : ''
   ].filter(Boolean);
   $('#vista').innerHTML = `<div class="cont" style="max-width:760px">
     <h2 style="margin:1.2rem 0">Contacto y preguntas</h2>
@@ -1481,8 +1482,8 @@ function vistaContacto() {
       <p style="margin-top:.5rem"><b>M</b> = Masculino · <b>F</b> = Femenino · <b>U</b> = Unisex</p></section>
     <section class="panel"><h2>Hablemos</h2><div style="display:grid;gap:.8rem;justify-items:start">${items.length ? items.join('') : '<p class="suave">Todavía no hay datos de contacto cargados.</p>'}</div></section>
     <section class="panel"><h2>Preguntas frecuentes</h2>
-      <details open><summary>¿Qué son los testers?</summary><p>Un tester es una versión de 60 ml de un perfume, pensada para tener tu aroma favorito a un precio accesible. Los nuestros tienen un 98% de similitud con los perfumes originales y un 35% de esencia a base de aceite.</p></details>
-      <details open><summary>¿Qué significan las letras M, F y U?</summary><p>Indican para quién es el aroma: <b>M</b> = Masculino (Hombre), <b>F</b> = Femenino (Mujer) y <b>U</b> = Unisex (para todos). Las ves junto al nombre dentro de cada tester, y podés filtrar por las pestañas Mujer, Hombre y Unisex.</p></details>
+      <details><summary>¿Qué son los testers?</summary><p>Un tester es una versión de 60 ml de un perfume, pensada para tener tu aroma favorito a un precio accesible. Los nuestros tienen un 98% de similitud con los perfumes originales y un 35% de esencia a base de aceite.</p></details>
+      <details><summary>¿Qué significan las letras M, F y U?</summary><p>Indican para quién es el aroma: <b>M</b> = Masculino (Hombre), <b>F</b> = Femenino (Mujer) y <b>U</b> = Unisex (para todos). Las ves junto al nombre dentro de cada tester, y podés filtrar por las pestañas Mujer, Hombre y Unisex.</p></details>
       <details><summary>¿Cómo compro?</summary><p>Elegí tus testers, agregalos al carrito y completá tus datos. Al confirmar te llevamos a WhatsApp para coordinar el pago por transferencia y enviarnos el comprobante.</p></details>
       <details><summary>¿Cómo se paga?</summary><p>Por transferencia bancaria. Los precios publicados ya son con transferencia. Al confirmar el pedido ves el alias o CBU para transferir.</p></details>
       <details><summary>¿Cómo se calcula el envío?</summary><p>Enviamos por Correo Argentino y el pedido llega a la sucursal que elijas vos al comprar (nombre y dirección). Si no sabés cuál te queda más cerca, la podés buscar en el <a href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" rel="noopener">buscador de sucursales</a> antes de finalizar.${D.envios.gratisTodo ? ' El envío es gratis a todo el país.' : ' El costo depende de tu provincia y de la cantidad de testers.'} ${!D.envios.gratisTodo && Number(c.envioGratisDesde) > 0 ? `En compras desde ${fmt(c.envioGratisDesde)} el envío es gratis.` : ''} Lo ves antes de confirmar el pedido.</p></details>
