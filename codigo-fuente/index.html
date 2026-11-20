@@ -156,13 +156,15 @@ body.en-admin .wa-flot{display:none}
 .vtog button.on{background:var(--btn-fondo);color:var(--btn-texto)}
 
 /* Grilla y tarjetas */
-.promos{background:var(--superficie);border:1.5px solid var(--agua);border-radius:16px;padding:.8rem 1rem;margin:.2rem auto 1.1rem;max-width:440px}
-.promos-t{margin:0 0 .3rem;font-size:.75rem;letter-spacing:.1em;font-weight:700;color:var(--agua-osc)}
-.promo-f{display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;padding:.5rem 0;border-bottom:1px solid var(--borde)}
-.promo-f span{font-weight:700;color:var(--tinta)}
+.promos{display:flex;flex-wrap:wrap;background:var(--superficie);border:1.5px solid var(--agua);border-radius:16px;padding:.7rem .6rem;margin:.2rem auto 1.1rem;max-width:620px}
+.promos-t{flex:0 0 100%;text-align:center;margin:0 0 .4rem;font-size:.75rem;letter-spacing:.1em;font-weight:700;color:var(--agua-osc)}
+.promo-f{flex:1 1 88px;min-width:0;display:flex;flex-direction:column;align-items:center;gap:.15rem;padding:.3rem .4rem;text-align:center}
+.promo-f+.promo-f{border-left:1px solid var(--borde)}
+.promo-f span{font-weight:700;color:var(--tinta);font-size:.8rem;white-space:nowrap}
 .promo-f b{font-size:1.1rem;color:var(--agua-osc);font-weight:800}
-.promos-p{margin:.5rem 0 0;font-size:.8rem;color:var(--suave)}
-@media(max-width:640px){.promos{display:flex;flex-wrap:wrap;max-width:none;padding:.6rem .5rem;margin:.2rem 0 .9rem}.promos-t,.promos-p{flex:0 0 100%;text-align:center}.promos-t{margin-bottom:.4rem}.promos-p{margin-top:.4rem;font-size:.72rem}.promo-f{flex:1 1 0;min-width:0;flex-direction:column;align-items:center;gap:.15rem;padding:.2rem .3rem;border-bottom:0;text-align:center}.promo-f+.promo-f{border-left:1px solid var(--borde)}.promo-f span{font-size:.7rem;letter-spacing:.02em;white-space:nowrap}.promo-f b{font-size:1.02rem}}
+.promos-p{flex:0 0 100%;text-align:center;margin:.4rem 0 0;font-size:.75rem;color:var(--suave)}
+@media(max-width:420px){.promo-f span{font-size:.7rem}.promo-f b{font-size:1rem}}
+
 @media(max-width:639px){.toolbar{display:grid;grid-template-columns:1fr 1fr auto;gap:.45rem;margin-bottom:.7rem}.busca{grid-column:1/-1;flex:none;min-height:40px}.btn-filtros{display:inline-flex;grid-row:2;grid-column:1/3;justify-content:center;min-height:40px}.toolbar .vtog{grid-row:2;grid-column:3}.toolbar:not(.abre) #marca,.toolbar:not(.abre) #orden{display:none}.toolbar.abre #marca{grid-row:3;grid-column:1}.toolbar.abre #orden{grid-row:3;grid-column:2/4}.busca input{padding:.35rem 0;font-size:.95rem}.toolbar select{width:100%;min-width:0;min-height:40px;padding:.3rem 1.6rem .3rem .7rem;font-size:.9rem;text-overflow:ellipsis}.vtog button{width:38px;height:38px}.chips{padding-bottom:.6rem}.res-fila{margin-top:0;margin-bottom:.4rem;flex-wrap:nowrap}.pp-t{display:none}.por-pag select{min-height:32px}}
 .res-fila{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
 .por-pag{display:flex;align-items:center;gap:.4rem;margin:0}.por-pag select{width:auto;min-height:36px;padding:.2rem .5rem}
@@ -1878,13 +1880,16 @@ function admConfig() {
 /* ---------- precios y promos ---------- */
 function admPrecios() {
   const c = D.config, packs = (Array.isArray(c.promos) ? c.promos : PROMOS_DEF).slice().sort((a, b) => a.cant - b.cant);
-  const filas = Array.from({ length: 6 }, (_, i) => packs[i] || { cant: '', precio: '' });
+  const filas = packs.length ? packs : [{ cant: '', precio: '' }];
+  const filaPromo = (i, f) => `<div class="zona" data-fila-promo><input class="inp" inputmode="numeric" data-pc="${i}" placeholder="Cantidad" aria-label="Cantidad de testers" value="${f.cant}"><input class="inp" inputmode="numeric" data-miles data-pp="${i}" placeholder="Precio total ($)" aria-label="Precio total de la promo" value="${f.precio ? Number(f.precio).toLocaleString('es-AR') : ''}"><button class="ib chico" type="button" data-act="promo-borrar" aria-label="Eliminar promo">${ico('papelera')}</button></div>`;
+  adm.filaPromo = filaPromo; adm.promoN = filas.length;
   $('#adm-cont').innerHTML = `<form id="form-precios">
     <section class="panel"><h2>Precio general</h2>
       <div class="campo"><label for="pr-pg">Precio de 1 tester ($)</label><input class="inp" id="pr-pg" inputmode="numeric" data-miles placeholder="Ej: 17.000" value="${c.precioGeneral ? Number(c.precioGeneral).toLocaleString('es-AR') : ''}"><span class="ayuda">Es el precio de todos los testers que no tengan uno propio. Un tester sin precio y sin precio general no se muestra en la tienda. Si cargás un precio en un tester, ese manda.</span></div></section>
     <section class="panel"><h2>Promos por cantidad</h2>
-      <p class="ayuda" style="margin-bottom:.6rem">Si el cliente lleva esa cantidad de testers, el precio de promo se aplica solo en el carrito. Con otras cantidades se arma la mejor combinación (por ejemplo, 13 = 10 + 3). No aplica a testers con precio propio o con oferta. Dejá filas vacías si no las necesitás.</p>
-      ${filas.map((f, i) => `<div class="zona"><input class="inp" inputmode="numeric" data-pc="${i}" placeholder="Cantidad" aria-label="Cantidad de testers" value="${f.cant}"><input class="inp" inputmode="numeric" data-miles data-pp="${i}" placeholder="Precio total ($)" aria-label="Precio total de la promo" value="${f.precio ? Number(f.precio).toLocaleString('es-AR') : ''}"></div>`).join('')}
+      <p class="ayuda" style="margin-bottom:.6rem">Si el cliente lleva esa cantidad de testers, el precio de promo se aplica solo en el carrito. Con otras cantidades se arma la mejor combinación (por ejemplo, 13 = 10 + 3). No aplica a testers con precio propio o con oferta. Podés agregar todas las que quieras y borrar las que no uses (después tocá “Guardar precios”).</p>
+      <div id="promo-filas">${filas.map((f, i) => filaPromo(i, f)).join('')}</div>
+      <button class="btn sec chico" type="button" data-act="promo-agregar" style="margin-top:.3rem">+ Agregar promo</button>
     </section>
     <button class="btn" type="submit">Guardar precios</button></form>`;
 }
@@ -2142,6 +2147,11 @@ document.addEventListener('click', async e => {
         admPedidos();
       }
       break;
+    case 'promo-agregar': {
+      const f = $('#promo-filas'); f.insertAdjacentHTML('beforeend', adm.filaPromo(adm.promoN++, { cant: '', precio: '' }));
+      f.lastElementChild.querySelector('input').focus(); break;
+    }
+    case 'promo-borrar': el.closest('[data-fila-promo]').remove(); break;
     case 'zona-agregar': leerEnvios(); adm.env.zonas.push({ id: 'z' + uid(), nombre: 'Zona nueva', precio: 0 }); admEnvios(); break;
     case 'zona-borrar': {
       leerEnvios();
