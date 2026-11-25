@@ -1643,7 +1643,7 @@ function admResumen() {
       <div class="stats" style="grid-template-columns:repeat(2,1fr);margin-bottom:.8rem">
         <button type="button" class="stat" data-act="ir" data-id="pedidos:env"><span>Enviados</span><b>${enviados.length}</b><small class="suave">${fmt(sumaT(enviados))}</small></button>
         <button type="button" class="stat ${porEnviar.length ? 'alerta' : ''}" data-act="ir" data-id="pedidos:por"><span>No enviados</span><b>${porEnviar.length}</b><small class="suave">${fmt(sumaT(porEnviar))}</small></button></div>
-      ${porEnviar.length ? `<p class="lbl" style="margin-bottom:.3rem">Por enviar (los más viejos primero)</p>${filaPor}${porEnviar.length > 8 ? `<p class="ayuda" style="margin-top:.4rem">y ${porEnviar.length - 8} más. Tocá “No enviados” para verlos todos.</p>` : ''}` : '<p class="suave">No hay pedidos por enviar.</p>'}</section>
+      ${porEnviar.length ? `<details><summary>Ver detalle de los no enviados (${porEnviar.length})</summary><p class="lbl" style="margin:.5rem 0 .3rem">Los más viejos primero</p>${filaPor}${porEnviar.length > 8 ? `<p class="ayuda" style="margin-top:.4rem">y ${porEnviar.length - 8} más. Tocá “No enviados” para verlos todos.</p>` : ''}</details>` : '<p class="suave">No hay pedidos por enviar.</p>'}</section>
     ${API() ? `<section class="panel"><h2>Avisos de pedidos nuevos</h2>
       <p class="suave" id="push-msg" style="margin-bottom:.8rem">Revisando…</p>
       <div id="push-bot" style="display:flex;gap:.5rem;flex-wrap:wrap"></div></section>` : ''}
