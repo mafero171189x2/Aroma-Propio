@@ -286,6 +286,13 @@ details p{margin-top:.5rem;color:var(--tinta-2)}
 .foot{margin-top:3rem;border-top:1px solid var(--borde);padding:1.6rem 0 5.4rem;color:var(--suave);font-size:.9rem}
 .foot-in{display:flex;flex-wrap:wrap;gap:.8rem 1.5rem;justify-content:space-between;align-items:center}
 .foot a{text-decoration:none;font-weight:600}
+.redes{display:flex;flex-wrap:wrap;gap:.5rem}
+.redes a{display:inline-flex;align-items:center;gap:.45rem;padding:.4rem .7rem;border:1px solid var(--borde);border-radius:999px;font-weight:600}
+.redes a:hover{background:var(--elevado)}
+.foot-redes{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+.foot-redes[hidden]{display:none}
+.menu-redes{margin-top:.6rem;padding-top:.6rem;border-top:1px solid var(--borde)}
+.menu-redes .menu-tit{padding:.3rem .6rem;font-size:.8rem;font-weight:700;color:var(--suave);text-transform:uppercase;letter-spacing:.04em}
 .foot .foot-adm{font-size:.55rem;font-weight:400;opacity:.35}
 .foot .foot-adm:hover,.foot .foot-adm:focus-visible{opacity:.8}
 
@@ -417,6 +424,9 @@ html[data-tema="noche"] .bajo{color:var(--sol)}
   <symbol id="i-etiqueta" viewBox="0 0 24 24"><path d="M3 12V4h8l9.5 9.5a1.4 1.4 0 0 1 0 2L15 21a1.4 1.4 0 0 1-2 0z"/><circle cx="7.5" cy="8.5" r="1.2"/></symbol>
   <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s6-5.6 6-10.5a6 6 0 0 0-12 0C6 15.4 12 21 12 21z"/><circle cx="12" cy="10.5" r="2.2"/></symbol>
   <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4 7l8 6 8-6"/></symbol>
+  <symbol id="i-instagram" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r=".6"/></symbol>
+  <symbol id="i-facebook" viewBox="0 0 24 24"><path d="M14 8.5h2.5V5H14a3.5 3.5 0 0 0-3.5 3.5V11H8v3.5h2.5V21H14v-6.5h2.5l.5-3.5h-3V8.5a.5.5 0 0 1 .5-.5z"/></symbol>
+  <symbol id="i-tiktok" viewBox="0 0 24 24"><path d="M14 4v10.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M14 4c.3 2.4 1.9 4 4.5 4.2"/></symbol>
   <symbol id="i-chat" viewBox="0 0 24 24"><path d="M4 20l1.4-4.2A8 8 0 1 1 8.4 18.8L4 20z"/></symbol>
   <symbol id="i-compacta" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></symbol>
   <symbol id="i-detalle" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="7" rx="1.5"/><rect x="4" y="13" width="16" height="7" rx="1.5"/></symbol>
@@ -440,6 +450,7 @@ html[data-tema="noche"] .bajo{color:var(--sol)}
 <footer class="foot" id="foot">
   <div class="cont foot-in">
     <span>&copy; <span id="anio"></span> <span id="foot-nombre">Aroma Propio</span>. Todos los derechos reservados.</span>
+    <div class="foot-redes" id="foot-redes" hidden></div>
     <a class="foot-adm" href="#/admin" aria-label="Panel">Panel</a>
   </div>
 </footer>
@@ -643,7 +654,7 @@ function seed() {
     config: {
       nombreTienda: 'Aroma Propio', bannerUrl: '', bannerTitulo: 'Encontrá el aroma que te represente',
       bannerSubtitulo: 'Envío gratis en compras desde $80.000', whatsappNumero: '', envioGratisDesde: 80000,
-      aliasCbu: '', retiroLocal: false, sinControlStock: true, precioGeneral: 0, emailContacto: '', direccionContacto: '', mapaUrl: ''
+      aliasCbu: '', retiroLocal: false, sinControlStock: true, precioGeneral: 0, emailContacto: '', direccionContacto: '', mapaUrl: '', instagramUrl: '', facebookUrl: '', tiktokUrl: ''
     },
     envios: seedEnvios()
   };
@@ -979,6 +990,7 @@ function abrirMenu() {
     <a href="#/cuenta">${ico('usuario')} ${u ? 'Mi cuenta y pedidos' : 'Ingresar o crear cuenta'}</a>
     <a href="#/contacto">${ico('mail')} Contacto y preguntas</a>
     ${u ? `<button type="button" data-act="salir">${ico('x')} Cerrar sesión</button>` : ''}
+    ${redesActivas().length ? `<div class="menu-redes"><div class="menu-tit">Nuestras redes</div>${redesActivas().map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener">${ico(r.k)} ${r.n}</a>`).join('')}</div>` : ''}
   </nav>`;
   abrir('#menu');
 }
@@ -1518,7 +1530,8 @@ function vistaContacto() {
     c.whatsappNumero ? `<a class="btn" target="_blank" rel="noopener" href="${esc(linkWA(c.whatsappNumero, 'Hola! Quería consultar por un extracto.'))}">${ico('chat')} Escribinos por WhatsApp</a>` : '',
     c.emailContacto ? `<p>${ico('mail')} <a href="mailto:${esc(c.emailContacto)}">${esc(c.emailContacto)}</a></p>` : '',
     c.direccionContacto ? `<p>${ico('pin')} ${esc(c.direccionContacto)}</p>` : '',
-    mapa ? `<a class="btn sec" target="_blank" rel="noopener" href="${esc(mapa)}">${ico('pin')} Cómo llegar</a>` : ''
+    mapa ? `<a class="btn sec" target="_blank" rel="noopener" href="${esc(mapa)}">${ico('pin')} Cómo llegar</a>` : '',
+    redesActivas().length ? `<div><p class="lbl" style="margin-bottom:.4rem">Nuestras redes</p><div class="redes">${htmlRedes(true)}</div></div>` : ''
   ].filter(Boolean);
   $('#vista').innerHTML = `<div class="cont" style="max-width:760px">
     <h2 style="margin:1.2rem 0">Contacto y preguntas</h2>
@@ -1924,6 +1937,11 @@ function admConfig() {
       <div class="campo"><label for="cfg-mail">Email</label><input class="inp" id="cfg-mail" type="email" value="${esc(c.emailContacto)}"></div>
       <div class="campo"><label for="cfg-dir">Dirección</label><input class="inp" id="cfg-dir" value="${esc(c.direccionContacto)}"></div>
       <div class="campo"><label for="cfg-mapa">Link de Google Maps (opcional)</label><input class="inp" id="cfg-mapa" type="url" value="${esc(c.mapaUrl)}"></div></section>
+    <section class="panel"><h2>Redes sociales</h2>
+      <p class="ayuda" style="margin-bottom:.6rem">Poné tu usuario (con o sin @) o el link. Solo se muestran las que completes: en el menú, en Contacto y al pie de la página.</p>
+      <div class="campo"><label for="cfg-ig">Instagram</label><input class="inp" id="cfg-ig" placeholder="@tuusuario" autocapitalize="none" value="${esc(c.instagramUrl || '')}"></div>
+      <div class="campo"><label for="cfg-fb">Facebook</label><input class="inp" id="cfg-fb" placeholder="tupagina o link" autocapitalize="none" value="${esc(c.facebookUrl || '')}"></div>
+      <div class="campo"><label for="cfg-tt">TikTok</label><input class="inp" id="cfg-tt" placeholder="@tuusuario" autocapitalize="none" value="${esc(c.tiktokUrl || '')}"></div></section>
     <button class="btn" type="submit">Guardar configuración</button></form>`;
 }
 
@@ -2033,7 +2051,26 @@ function repintar() {
   window.scrollTo({ top: y, left: 0, behavior: 'instant' });
 }
 
+/* Redes sociales: solo se muestran las que están completas. Acepta @usuario, usuario o el link. */
+const REDES = [['instagram', 'Instagram', 'instagramUrl', 'https://www.instagram.com/'], ['facebook', 'Facebook', 'facebookUrl', 'https://www.facebook.com/'], ['tiktok', 'TikTok', 'tiktokUrl', 'https://www.tiktok.com/@']];
+function normalizarRed(v, base) {
+  v = String(v || '').trim();
+  if (!v) return '';
+  if (/^https?:\/\//i.test(v)) return v;
+  if (/^(www\.)?[a-z0-9-]+\.[a-z]{2,}\//i.test(v)) return 'https://' + v;
+  v = v.replace(/^@/, '');
+  return /^[\w.\-]+$/.test(v) ? base + v : '';
+}
+const redesActivas = () => REDES.map(([k, n, f, base]) => ({ k, n, url: normalizarRed(D.config[f], base) })).filter(r => r.url);
+const htmlRedes = (conTexto) => redesActivas().map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener" aria-label="${r.n}">${ico(r.k)}${conTexto ? ' ' + r.n : ''}</a>`).join('');
+function pintarRedes() {
+  const f = $('#foot-redes'); if (!f) return;
+  const h = htmlRedes(false);
+  f.innerHTML = h ? '<span>Seguinos</span>' + redesActivas().map(r => `<a href="${esc(r.url)}" target="_blank" rel="noopener" aria-label="${r.n}" title="${r.n}">${ico(r.k)}</a>`).join('') : '';
+  f.hidden = !h;
+}
 function aplicarMarca() {
+  pintarRedes();
   const n = D.config.nombreTienda || 'Aroma Propio';
   ['#logo', '#foot-nombre', '#menu-nombre', '#carga-nombre'].forEach(s => { const e = $(s); if (e) e.textContent = n; });
   document.title = n;
@@ -2399,7 +2436,8 @@ document.addEventListener('submit', async e => {
         ...D.config, nombreTienda: $('#cfg-nombre').value.trim() || 'Aroma Propio', bannerTitulo: $('#cfg-bt').value.trim(), bannerSubtitulo: $('#cfg-bs').value.trim(),
         bannerUrl: $('#cfg-bimg').value, whatsappNumero: normalizarWA($('#cfg-wa').value), envioGratisDesde: nMiles($('#cfg-eg')), aliasCbu: $('#cfg-alias').value.trim(),
         retiroLocal: $('#cfg-retiro').checked, sinControlStock: $('#cfg-sinstock').checked, emailContacto: $('#cfg-mail').value.trim(), direccionContacto: $('#cfg-dir').value.trim(),
-        mapaUrl: /^https?:\/\//i.test(mapa) ? mapa : ''
+        mapaUrl: /^https?:\/\//i.test(mapa) ? mapa : '',
+        instagramUrl: $('#cfg-ig').value.trim(), facebookUrl: $('#cfg-fb').value.trim(), tiktokUrl: $('#cfg-tt').value.trim()
       };
       if (!guardar()) { toast('No se pudo guardar: el almacenamiento del navegador está lleno. Probá con una foto más chica o un link.', 'error'); break; }
       aplicarMarca(); toast('Configuración guardada', 'success'); admConfig(); break;
