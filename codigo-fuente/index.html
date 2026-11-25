@@ -321,6 +321,11 @@ dialog::backdrop{background:var(--velo)}
 .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:.7rem;margin-bottom:1.2rem}
 @media(min-width:720px){.stats{grid-template-columns:repeat(5,1fr)}}
 .stat{background:var(--superficie);border:1px solid var(--borde);border-radius:14px;padding:.9rem}
+button.stat{display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;transition:border-color .15s,transform .1s}
+button.stat:hover,button.stat:focus-visible{border-color:var(--agua)}
+button.stat:active{transform:scale(.98)}
+.fila-ir{width:100%;background:transparent;border:0;border-bottom:1px solid var(--borde);font:inherit;color:inherit;cursor:pointer;text-align:left}
+.fila-ir:hover{background:var(--elevado)}
 .stat span{font-size:.82rem;color:var(--suave);font-weight:600}
 .stat b{display:block;font-family:'Fraunces',Georgia,serif;font-size:1.5rem;margin-top:.2rem}
 .stat.alerta b{color:var(--coral)}
@@ -1627,10 +1632,18 @@ function admResumen() {
   const ventasTot = vivos.reduce((a, p) => a + p.subtotal, 0), envTot = vivos.reduce((a, p) => a + p.envio, 0);
   const sinStock = D.productos.filter(p => !stockLibre(p) && stockDe(p) <= 0), bajo = D.productos.filter(p => !stockLibre(p) && stockDe(p) > 0 && stockDe(p) <= 3);
   const pend = PEDIDOS.length;
-  const card = (t, v, alerta) => `<div class="stat ${alerta ? 'alerta' : ''}"><span>${t}</span><b>${v}</b></div>`;
+  const card = (t, v, alerta, ir) => `<button type="button" class="stat ${alerta ? 'alerta' : ''}" data-act="ir" data-id="${ir}" aria-label="${t}: ver detalle"><span>${t}</span><b>${v}</b></button>`;
+  const enviados = vivos.filter(p => p.estado === 'enviado'), porEnviar = vivos.filter(p => p.estado !== 'enviado');
+  const sumaT = l => l.reduce((a, p) => a + (Number(p.total) || 0), 0);
+  const filaPor = porEnviar.slice().sort((x, y) => new Date(x.fecha) - new Date(y.fecha)).slice(0, 8).map(p => `<button type="button" class="fila-t fila-ir" data-act="ir" data-id="pedidos:por" data-q="${esc(p.numero)}"><span><b>${esc(p.numero)}</b> · ${esc((p.cliente && p.cliente.nombre) || '')}</span><span>${fmt(p.total)}</span></button>`).join('');
   $('#adm-cont').innerHTML = `<div class="stats">
-    ${card('Productos', D.productos.length)}${card('Sin stock', sinStock.length, sinStock.length > 0)}${card('Pedidos', pend)}
-    ${card('Ventas (productos)', fmt(ventasTot))}${card('Envíos cobrados', fmt(envTot))}</div>
+    ${card('Productos', D.productos.length, false, 'productos')}${card('Sin stock', sinStock.length, sinStock.length > 0, 'productos:sinstock')}${card('Pedidos', pend, false, 'pedidos')}
+    ${card('Ventas (productos)', fmt(ventasTot), false, 'pedidos')}${card('Envíos cobrados', fmt(envTot), false, 'envios')}</div>
+    <section class="panel"><h2>Estado de los pedidos</h2>
+      <div class="stats" style="grid-template-columns:repeat(2,1fr);margin-bottom:.8rem">
+        <button type="button" class="stat" data-act="ir" data-id="pedidos:env"><span>Enviados</span><b>${enviados.length}</b><small class="suave">${fmt(sumaT(enviados))}</small></button>
+        <button type="button" class="stat ${porEnviar.length ? 'alerta' : ''}" data-act="ir" data-id="pedidos:por"><span>No enviados</span><b>${porEnviar.length}</b><small class="suave">${fmt(sumaT(porEnviar))}</small></button></div>
+      ${porEnviar.length ? `<p class="lbl" style="margin-bottom:.3rem">Por enviar (los más viejos primero)</p>${filaPor}${porEnviar.length > 8 ? `<p class="ayuda" style="margin-top:.4rem">y ${porEnviar.length - 8} más. Tocá “No enviados” para verlos todos.</p>` : ''}` : '<p class="suave">No hay pedidos por enviar.</p>'}</section>
     ${API() ? `<section class="panel"><h2>Avisos de pedidos nuevos</h2>
       <p class="suave" id="push-msg" style="margin-bottom:.8rem">Revisando…</p>
       <div id="push-bot" style="display:flex;gap:.5rem;flex-wrap:wrap"></div></section>` : ''}
@@ -1861,7 +1874,7 @@ function admPedidos() {
 }
 function admPedLista() {
   const q = norm(adm.pqp || '').trim().split(/\s+/).filter(Boolean);
-  const pf = adm.pf || 'todos', nEnv = PEDIDOS.filter(p => p.estado === 'enviado').length;
+  const pf = adm.pef || 'todos', nEnv = PEDIDOS.filter(p => p.estado === 'enviado').length;
   const chips = [['todos', 'Todos', PEDIDOS.length], ['por', 'No enviados', PEDIDOS.length - nEnv], ['env', 'Enviados', nEnv]].map(([k, t, n]) => `<button class="btn chico ${pf === k ? '' : 'sec'}" type="button" data-act="ped-filtro" data-id="${k}" style="${pf === k ? 'background:var(--btn-fondo);color:#0B0B0C;border-color:var(--btn-fondo)' : ''}">${t} ${n}</button>`).join('');
   const todos = PEDIDOS.filter(p => pf === 'todos' || (pf === 'env') === (p.estado === 'enviado')).filter(p => (!q.length || (t => q.every(w => t.includes(w)))(textoPedido(p)))).sort((x, y) => new Date(y.fecha) - new Date(x.fecha));
   const tarjeta = p => {
@@ -2235,7 +2248,15 @@ document.addEventListener('click', async e => {
       }
       break;
     }
-    case 'ped-filtro': adm.pf = id; admPedLista(); break;
+    case 'ped-filtro': adm.pef = id; admPedLista(); break;
+    case 'ir': {
+      const [tab, f] = id.split(':');
+      if (tab === 'productos') adm.pf = f || 'todos';
+      if (tab === 'pedidos') { adm.pef = f || 'todos'; adm.pqp = el.dataset.q || ''; adm.pedMax = 30; }
+      if (location.hash === '#/admin/' + tab) vistaAdmin(tab); else location.hash = '#/admin/' + tab;
+      window.scrollTo({ top: 0, behavior: 'instant' });
+      break;
+    }
     case 'ped-enviado': {
       const pe = PEDIDOS.find(p => p.id === id); if (!pe) break;
       const marcar = pe.estado !== 'enviado';
